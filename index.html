@@ -68,6 +68,39 @@ canvas { flex: 1; display: block; width: 100%; }
 }
 .card b { color: #79c0ff; display: block; margin-bottom: 3px; }
 .card span { color: #8b949e; }
+.card.committed { border-color: #f0c040; background: #2a2810; cursor: pointer; }
+.card.dying { opacity: 0.45; border-color: #803030; cursor: default; }
+.card.dying b { color: #a07070; }
+#capturebar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #1a1200;
+  border-bottom: 1px solid #4a3800;
+  font-size: 12px;
+  color: #c8a040;
+}
+#capturebar.active { display: flex; }
+#capturebtn {
+  background: #7a4000;
+  color: #ffd080;
+  border: 1px solid #a06000;
+  padding: 3px 12px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+}
+#capturebtn:disabled { background: #2a2010; color: #604020; cursor: default; border-color: #3a2800; }
+#cancelbtn {
+  background: transparent;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+}
 </style>
 </head>
 <body>
@@ -81,6 +114,11 @@ canvas { flex: 1; display: block; width: 100%; }
 <canvas id="c"></canvas>
 <div id="bottombar">
   <div id="logline">Click your army (P) to select it, then click a highlighted tile to move.</div>
+  <div id="capturebar">
+    <span id="captureinfo"></span>
+    <button id="capturebtn" onclick="confirmCapture()" disabled>Capture!</button>
+    <button id="cancelbtn" onclick="cancelCapture()">Cancel</button>
+  </div>
   <div id="hand"></div>
 </div>
 
@@ -170,9 +208,12 @@ function revealAround(q, r) {
 // ── Game state ────────────────────────────────────────────────────────────
 let turn = 1, gold = 5, health = 10;
 let army = { q: 5, r: 0, movesLeft: 3 };
-let hand = [];
+let hand = [];         // [{ id, name, atk, def, dying }]
+let cardIdSeq = 0;
 let selected = false;
-let phase = 'playing'; // 'playing' | 'waiting'
+let phase = 'playing'; // 'playing' | 'capturing' | 'waiting'
+let captureTarget = null; // { q, r } of POI being captured
+let committed = new Set(); // card ids selected for capture
 // reachable: Map<tkey, steps_cost> — BFS from army with movesLeft budget
 let reachable = new Map();
 
@@ -203,11 +244,73 @@ const POOL = [
 ];
 
 function drawCards(n) {
-  for (let i = 0; i < n; i++) hand.push({ ...POOL[rng(0, POOL.length - 1)] });
+  for (let i = 0; i < n; i++) {
+    hand.push({ id: cardIdSeq++, dying: false, ...POOL[rng(0, POOL.length - 1)] });
+  }
+}
+
+// ── Capture ───────────────────────────────────────────────────────────────
+function enterCapture(q, r) {
+  phase = 'capturing';
+  captureTarget = { q, r };
+  committed = new Set();
+  selected = false;
+  reachable = new Map();
+  const t = tiles.get(tkey(q, r));
+  log(`POI guarded by stack DEF ${t.stack}. Click cards to commit, then Capture!`);
+  updateCaptureBar();
+  renderHand();
+  render();
+}
+
+function cancelCapture() {
+  phase = 'playing';
+  captureTarget = null;
+  committed = new Set();
+  document.getElementById('capturebar').classList.remove('active');
+  log('Capture cancelled.');
+  renderHand();
+}
+
+function updateCaptureBar() {
+  const t = tiles.get(tkey(captureTarget.q, captureTarget.r));
+  const totalAtk = hand.filter(c => committed.has(c.id) && !c.dying)
+                       .reduce((s, c) => s + c.atk, 0);
+  const needed = t.stack;
+  document.getElementById('captureinfo').textContent =
+    `Committed ATK: ${totalAtk} / Need: >${needed}`;
+  document.getElementById('capturebtn').disabled = totalAtk <= needed;
+  document.getElementById('capturebar').classList.add('active');
+}
+
+function confirmCapture() {
+  const t = tiles.get(tkey(captureTarget.q, captureTarget.r));
+  const totalAtk = hand.filter(c => committed.has(c.id) && !c.dying)
+                       .reduce((s, c) => s + c.atk, 0);
+  if (totalAtk <= t.stack) return;
+
+  // Mark committed cards as dying
+  hand.forEach(c => { if (committed.has(c.id)) c.dying = true; });
+
+  // Clear the POI stack (captured)
+  t.poi = false; t.stack = null;
+
+  // Reward: 1 random unit drops into hand
+  const reward = { id: cardIdSeq++, dying: false, ...POOL[rng(0, POOL.length - 1)] };
+  hand.push(reward);
+
+  phase = 'playing';
+  captureTarget = null;
+  committed = new Set();
+  document.getElementById('capturebar').classList.remove('active');
+  log(`POI captured! ${reward.name} joined your forces. Committed units die next turn.`);
+  renderHand();
+  render();
 }
 
 // ── Turn ──────────────────────────────────────────────────────────────────
 function endTurn() {
+  if (phase === 'capturing') cancelCapture();
   if (phase !== 'playing') return;
   phase = 'waiting';
   selected = false;
@@ -222,6 +325,7 @@ function endTurn() {
 }
 
 function advanceTurn() {
+  hand = hand.filter(c => !c.dying); // dying units expire
   gold += 5;
   turn++;
   army.movesLeft = 3;
@@ -252,8 +356,18 @@ function renderHand() {
   if (!hand.length) { el.textContent = 'Hand empty.'; return; }
   for (const c of hand) {
     const div = document.createElement('div');
-    div.className = 'card';
-    div.innerHTML = `<b>${c.name}</b><span>ATK ${c.atk}  DEF ${c.def}</span>`;
+    const isCommitted = committed.has(c.id);
+    div.className = 'card' + (c.dying ? ' dying' : '') + (isCommitted ? ' committed' : '');
+    div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b><span>ATK ${c.atk}  DEF ${c.def}</span>`;
+    if (phase === 'capturing' && !c.dying) {
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        if (committed.has(c.id)) committed.delete(c.id);
+        else committed.add(c.id);
+        updateCaptureBar();
+        renderHand();
+      };
+    }
     el.appendChild(div);
   }
 }
@@ -389,15 +503,30 @@ function render() {
 
 // ── Input ─────────────────────────────────────────────────────────────────
 canvas.addEventListener('click', e => {
-  if (phase !== 'playing') return;
+  if (phase === 'waiting') return;
   const rect = canvas.getBoundingClientRect();
   const ox = canvas.width / 2, oy = canvas.height / 2;
   const { q, r } = p2h(e.clientX - rect.left - ox, e.clientY - rect.top - oy);
   const k = tkey(q, r);
   if (!tiles.has(k)) return;
 
+  // While capturing: clicking army re-opens capture UI on current POI
+  if (phase === 'capturing') {
+    if (q === army.q && r === army.r) {
+      const t = tiles.get(tkey(army.q, army.r));
+      if (t && t.poi) enterCapture(army.q, army.r);
+    }
+    return;
+  }
+
   // Toggle army selection
   if (q === army.q && r === army.r) {
+    // If standing on an uncaptured POI, re-open capture instead of just selecting
+    const here = tiles.get(k);
+    if (here && here.poi && here.stack !== null) {
+      enterCapture(q, r);
+      return;
+    }
     selected = !selected;
     reachable = computeReachable();
     log(selected
@@ -417,13 +546,14 @@ canvas.addEventListener('click', e => {
     const t = tiles.get(k);
     if (q === -5 && r === 0) {
       log(`Reached enemy city! Send a War Party to attack. (Cost: 1 gold — coming next step.)`);
-    } else if (t.poi) {
-      log(`POI — neutral stack power ~${t.stack}. (Capture coming next step.)`);
+      update(); render();
+    } else if (t.poi && t.stack !== null) {
+      update(); render();
+      enterCapture(q, r); // auto-open capture UI
     } else {
       log(`Moved to (${q},${r}). Moves left: ${army.movesLeft}.`);
+      update(); render();
     }
-    update();
-    render();
     return;
   }
 
