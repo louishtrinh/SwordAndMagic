@@ -198,8 +198,8 @@ Spells have a tier and level; upgradeable.
 | Turn loop (+5 gold/turn, Townhall draws 3 cards) | Done |
 | Card hand display | Done |
 | POI capture mechanic | Done |
-| Buildings (T1) | Next |
-| War Party / kingdom combat | Pending |
+| Buildings (T1) | Done |
+| War Party / kingdom combat | Next |
 | AI opponent | Pending |
 | Firebase multiplayer | Pending |
 | Spells | Pending |
