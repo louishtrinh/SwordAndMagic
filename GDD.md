@@ -200,6 +200,8 @@ Spells have a tier and level; upgradeable.
 | POI capture mechanic | Done |
 | Buildings (T1) | Done |
 | War Party / kingdom combat | Done |
-| AI opponent | Next |
+| AI opponent (auto War Parties, scales with turn) | Done |
+| Player defense (Defend button, assign defenders) | Done |
+| T1 Spells (Transmute, Meteor, Vision, Analyze) | Done |
+| Lose / win condition (game over screen) | Done |
 | Firebase multiplayer | Pending |
-| Spells | Pending |

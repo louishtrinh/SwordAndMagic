@@ -186,6 +186,59 @@ canvas { flex: 1; display: block; width: 100%; }
 #closebuild { margin-top: 12px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
 #buildbtn { background: #21262d; color: #c8c8c8; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
 #buildbtn:hover { background: #30363d; }
+#defendbtn { background: #21262d; color: #7090c0; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#defendbtn:hover { background: #161d28; }
+#defendbtn.active { background: #1a3a5a; border-color: #4070c0; color: #90c0f0; }
+.card.defending { border-color: #4070c0; background: #101830; cursor: pointer; }
+#defensebar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #080e1a;
+  border-bottom: 1px solid #204060;
+  font-size: 12px;
+  color: #7090c0;
+}
+#defensebar.active { display: flex; }
+#spellbar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: #0a0a1a;
+  border-bottom: 1px solid #302060;
+  flex-wrap: wrap;
+}
+.spellbtn {
+  background: #1a1040;
+  color: #c0a0ff;
+  border: 1px solid #5040a0;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 11px;
+}
+.spellbtn:disabled { background: #0d0d20; color: #484f58; cursor: default; border-color: #2a2040; }
+.spellbtn:hover:not(:disabled) { background: #251558; }
+.spellbtn.active { border-color: #a080ff; background: #2a1870; }
+#gameoveroverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+}
+#gameoveroverlay.hidden { display: none; }
+#gameoverpanel {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 28px 40px;
+  text-align: center;
+}
+#gameoverpanel h2 { font-size: 20px; margin-bottom: 10px; letter-spacing: 2px; }
+#gameoverpanel p { font-size: 13px; color: #8b949e; margin-bottom: 18px; }
+#gameoverpanel button { background: #238636; color: #fff; border: none; padding: 6px 24px; cursor: pointer; font-family: monospace; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -195,6 +248,7 @@ canvas { flex: 1; display: block; width: 100%; }
   <span>Health <b id="sHealth">10</b></span>
   <span>Moves <b id="sMoves">3</b></span>
   <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
+  <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
   <button id="buildbtn" onclick="openBuild()">Build</button>
   <button id="endbtn" onclick="endTurn()">End Turn</button>
 </div>
@@ -218,13 +272,25 @@ canvas { flex: 1; display: block; width: 100%; }
     <button id="warbtn" onclick="launchWarParty()" disabled>Attack (1g)</button>
     <button class="cancelbtn" onclick="cancelWar()">Cancel</button>
   </div>
+  <div id="defensebar">
+    <span id="defenseinfo"></span>
+    <button onclick="toggleDefenseMode()" style="background:transparent;color:#8b949e;border:1px solid #30363d;padding:3px 10px;cursor:pointer;font-family:monospace;font-size:12px;">Done</button>
+  </div>
+  <div id="spellbar"></div>
   <div id="hand"></div>
 </div>
 <div id="combatoverlay" class="hidden">
   <div id="combatpanel">
-    <h2>⚔ WAR PARTY COMBAT</h2>
+    <h2 id="combattitle">⚔ WAR PARTY COMBAT</h2>
     <div id="combatlog"></div>
     <button id="closecombat" onclick="closeCombat()">OK</button>
+  </div>
+</div>
+<div id="gameoveroverlay" class="hidden">
+  <div id="gameoverpanel">
+    <h2 id="gameovermsg"></h2>
+    <p id="gameoverdesc"></p>
+    <button onclick="location.reload()">Play Again</button>
   </div>
 </div>
 
@@ -358,6 +424,23 @@ let mana = 0, manaIncome = 0;
 // trainingLevels: { 'Warrior-atk': n, 'Warrior-def': n, ... } — upgrade counts
 const trainingLevels = {};
 
+// Defense
+let defenseMode = false;
+let defenders = new Set(); // card ids assigned to defend this turn
+
+// Spells
+const SPELL_DEFS = {
+  transmute: { name: 'Transmute', school: 'Reality',     cost: 4, targeted: false, desc: '+1 gold' },
+  meteor:    { name: 'Meteor',    school: 'Destruction',  cost: 4, targeted: true,  desc: 'POI: −5 DEF' },
+  vision:    { name: 'Vision',    school: 'Astral',       cost: 2, targeted: true,  desc: 'Reveal area' },
+  analyze:   { name: 'Analyze',   school: 'Astral',       cost: 1, targeted: true,  desc: 'Exact count' },
+};
+let playerSpells = [];
+let activeSpell = null;
+
+// AI
+const aiState = { gold: 5, attackCD: 3 };
+
 function getUnitStats(def) {
   const up = trainingLevels;
   return {
@@ -407,8 +490,13 @@ const BUILDING_DEFS = [
   },
   {
     id: 'school', name: 'School', cost: 4,
-    desc: 'Adds Apprentice to pool. Unlocks Mana (+2/turn).',
-    onBuild: () => { unitPool.push(UNIT_DEFS.Apprentice); manaIncome += 2; },
+    desc: 'Adds Apprentice to pool. Unlocks Mana (+2/turn). Grants 3 random Tier 1 spells.',
+    onBuild: () => {
+      unitPool.push(UNIT_DEFS.Apprentice);
+      manaIncome += 2; mana += 2;
+      const shuffled = Object.keys(SPELL_DEFS).sort(() => Math.random() - 0.5);
+      playerSpells = shuffled.slice(0, 3);
+    },
   },
 ];
 
@@ -557,6 +645,187 @@ function generateAIDefense() {
   return Array.from({ length: count }, () => ({ ...types[rng(0, types.length - 1)] }));
 }
 
+function generateAIForce() {
+  const count = Math.max(2, Math.min(2 + Math.floor(turn / 3), 8));
+  const types = [UNIT_DEFS.Warrior, UNIT_DEFS.Archer, UNIT_DEFS.Assassin];
+  if (turn >= 4) types.push(UNIT_DEFS.Archer);
+  if (turn >= 6) types.push(UNIT_DEFS.Assassin);
+  return Array.from({ length: count }, () => ({ ...types[rng(0, types.length - 1)] }));
+}
+
+function buildDefenseCombatLog(aiForce, playerDef) {
+  let lines = [];
+  const tag = (cls, text) => `<span class="${cls}">${text}</span>`;
+
+  lines.push(tag('dim', '── Buff Phase ──────────────────'));
+  lines.push(tag('dim', '(No auras active yet)'));
+
+  lines.push('');
+  lines.push(tag('dim', '── Pre-Battle (enemy speed 6 > your speed 5) ──'));
+
+  let defCards = [...playerDef];
+  let defDebuf = 0;
+
+  for (const c of aiForce) {
+    if (c.name === 'Archer') {
+      defDebuf += 1;
+      lines.push(tag('hit', `  Enemy Archer fires → your DEF −1`));
+    }
+  }
+  for (const c of aiForce) {
+    if (c.name === 'Assassin') {
+      const idx = defCards.findIndex(d => d.def < 3);
+      if (idx >= 0) {
+        const removed = defCards.splice(idx, 1)[0];
+        lines.push(tag('hit', `  Enemy Assassin → removes your ${removed.name} (DEF ${removed.def})`));
+      } else {
+        lines.push(tag('dim', `  Enemy Assassin: no target with DEF < 3`));
+      }
+    }
+  }
+
+  const aiAtk = aiForce.reduce((s, c) => s + c.atk, 0);
+  const rawDef = defCards.reduce((s, c) => s + c.def, 0);
+  const adjDef = Math.max(0, rawDef - defDebuf);
+
+  lines.push('');
+  lines.push(tag('dim', '── Combat ──────────────────────'));
+  lines.push(`  Enemy force:  ${aiForce.map(c => `${c.name}(ATK ${c.atk})`).join(' ')}`);
+  lines.push(`  Your defense: ${playerDef.length ? playerDef.map(c => `${c.name}(DEF ${c.def})`).join(' ') : '(undefended)'}`);
+  if (defDebuf || defCards.length < playerDef.length)
+    lines.push(tag('dim', `  After pre-battle: your DEF ${rawDef}−${defDebuf} = ${adjDef} (${playerDef.length - defCards.length} unit(s) removed)`));
+  lines.push('');
+  lines.push(`  ATK ${aiAtk}  vs  DEF ${adjDef}`);
+
+  const aiWins = aiAtk > adjDef;
+  lines.push('');
+  if (aiWins) {
+    lines.push(tag('lose', `  DEFEAT! Your kingdom: ${health} → ${Math.max(0, health - 1)} health`));
+    if (health - 1 <= 0) lines.push(tag('lose', '  ★ YOUR KINGDOM HAS FALLEN! ★'));
+  } else {
+    lines.push(tag('win', `  DEFENSE HOLDS! Enemy War Party repelled!`));
+  }
+  lines.push('');
+  lines.push(tag('dim', '(Your defending units are spent and die.)'));
+
+  return { html: lines.join('\n'), aiWins };
+}
+
+function resolveIncomingAttack() {
+  const aiForce = generateAIForce();
+  const playerDef = hand.filter(c => defenders.has(c.id) && !c.dying);
+  const result = buildDefenseCombatLog(aiForce, playerDef);
+
+  hand.forEach(c => { if (defenders.has(c.id)) c.dying = true; });
+  defenders = new Set();
+  defenseMode = false;
+  document.getElementById('defendbtn').classList.remove('active');
+  document.getElementById('defendbtn').textContent = 'Defend';
+  updateDefenseBar();
+
+  if (result.aiWins) health = Math.max(0, health - 1);
+
+  document.getElementById('combattitle').textContent = '⚔ ENEMY WAR PARTY';
+  document.getElementById('combatlog').innerHTML = result.html;
+  document.getElementById('combatoverlay').classList.remove('hidden');
+  update();
+  renderHand();
+}
+
+// ── Defense mode ─────────────────────────────────────────────────────────────
+function toggleDefenseMode() {
+  if (phase !== 'playing' && !defenseMode) { log('Finish current action first.'); return; }
+  defenseMode = !defenseMode;
+  const btn = document.getElementById('defendbtn');
+  btn.textContent = defenseMode ? 'Done Defending' : 'Defend';
+  btn.classList.toggle('active', defenseMode);
+  if (!defenseMode) {
+    const count = hand.filter(c => defenders.has(c.id) && !c.dying).length;
+    log(count ? `Defense set: ${count} unit${count !== 1 ? 's' : ''} defending.` : 'Defense cleared.');
+  } else {
+    log('Defense mode: click cards to assign defenders against the next attack.');
+  }
+  updateDefenseBar();
+  renderHand();
+}
+
+function updateDefenseBar() {
+  const bar = document.getElementById('defensebar');
+  if (!defenseMode) { bar.classList.remove('active'); return; }
+  const defCards = hand.filter(c => defenders.has(c.id) && !c.dying);
+  const totalDef = defCards.reduce((s, c) => s + c.def, 0);
+  document.getElementById('defenseinfo').textContent =
+    `Defenders: ${defCards.length} unit${defCards.length !== 1 ? 's' : ''}, total DEF ${totalDef} — click cards to assign`;
+  bar.classList.add('active');
+}
+
+// ── Spells ────────────────────────────────────────────────────────────────────
+function renderSpellBar() {
+  const bar = document.getElementById('spellbar');
+  if (!playerSpells.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span style="font-size:11px;color:#7060a0;margin-right:4px;flex-shrink:0">Spells:</span>' +
+    playerSpells.map(id => {
+      const s = SPELL_DEFS[id];
+      const canCast = mana >= s.cost && (phase === 'playing' || (phase === 'spell' && activeSpell === id));
+      const isActive = activeSpell === id;
+      return `<button class="spellbtn${isActive ? ' active' : ''}" onclick="castSpell('${id}')" ${!canCast && !isActive ? 'disabled' : ''}>
+        ${s.name} (${s.cost}m) — ${s.desc}
+      </button>`;
+    }).join('');
+}
+
+function castSpell(id) {
+  const spell = SPELL_DEFS[id];
+  if (activeSpell === id) {
+    activeSpell = null; phase = 'playing';
+    log(`${spell.name} cancelled.`);
+    renderSpellBar(); render();
+    return;
+  }
+  if (mana < spell.cost) { log(`Need ${spell.cost} mana to cast ${spell.name}.`); return; }
+  if (!spell.targeted) {
+    mana -= spell.cost;
+    if (id === 'transmute') { gold += 1; log('Transmute: 4 mana → +1 gold.'); }
+    update(); renderSpellBar();
+    return;
+  }
+  if (phase !== 'playing') { log('Finish current action first.'); return; }
+  activeSpell = id;
+  phase = 'spell';
+  selected = false; reachable = new Map();
+  log(`${spell.name}: click a target hex on the map. (Click spell button again to cancel.)`);
+  renderSpellBar(); render();
+}
+
+function resolveSpellTarget(q, r) {
+  const t = tiles.get(tkey(q, r));
+  const spell = SPELL_DEFS[activeSpell];
+  if (activeSpell === 'meteor') {
+    if (!t || !t.poi) { log('Meteor: must target a POI hex.'); return; }
+    mana -= spell.cost;
+    t.stack -= 5;
+    if (t.stack <= 0) { t.poi = false; t.stack = null; log(`Meteor obliterates the stack at (${q},${r})!`); }
+    else { log(`Meteor hits (${q},${r}): stack DEF reduced to ${t.stack}.`); }
+  } else if (activeSpell === 'vision') {
+    mana -= spell.cost;
+    for (let dq = -2; dq <= 2; dq++) {
+      for (let dr = Math.max(-2, -dq - 2); dr <= Math.min(2, -dq + 2); dr++) {
+        const nt = tiles.get(tkey(q + dq, r + dr));
+        if (nt) nt.revealed = true;
+      }
+    }
+    log(`Vision reveals the area around (${q},${r}).`);
+  } else if (activeSpell === 'analyze') {
+    if (!t || !t.poi) { log('Analyze: must target a POI hex.'); return; }
+    if (!t.revealed) { log('Analyze: target must be in visible area.'); return; }
+    mana -= spell.cost;
+    log(`Analyze: stack at (${q},${r}) has exactly ${t.stack} DEF power.`);
+  }
+  activeSpell = null; phase = 'playing';
+  update(); renderSpellBar(); render();
+}
+
 function enterWar() {
   if (gold < 1) { log('Need at least 1 gold to send a War Party.'); return; }
   phase = 'war';
@@ -599,6 +868,7 @@ function launchWarParty() {
   committed = new Set();
 
   // Show result modal
+  document.getElementById('combattitle').textContent = '⚔ WAR PARTY COMBAT';
   document.getElementById('combatlog').innerHTML = result.html;
   document.getElementById('combatoverlay').classList.remove('hidden');
 
@@ -674,16 +944,32 @@ function buildCombatLog(attackers, defenders) {
 
 function closeCombat() {
   document.getElementById('combatoverlay').classList.add('hidden');
-  if (enemyHealth <= 0) {
-    log('★ YOU WIN! The enemy kingdom has fallen! ★');
-  }
+  if (enemyHealth <= 0) showGameOver(true);
+  else if (health <= 0) showGameOver(false);
+}
+
+function showGameOver(playerWon) {
+  document.getElementById('gameovermsg').textContent = playerWon ? '★  VICTORY  ★' : '★  DEFEAT  ★';
+  document.getElementById('gameovermsg').style.color = playerWon ? '#60d060' : '#e05050';
+  document.getElementById('gameoverdesc').textContent = playerWon
+    ? 'The enemy kingdom has fallen. Your legend is written.'
+    : 'Your kingdom has fallen. The enemy emerges victorious.';
+  document.getElementById('gameoveroverlay').classList.remove('hidden');
 }
 
 // ── Turn ──────────────────────────────────────────────────────────────────
 function endTurn() {
   if (phase === 'capturing') cancelCapture();
   if (phase === 'war') cancelWar();
+  if (phase === 'spell') { activeSpell = null; phase = 'playing'; renderSpellBar(); }
   if (phase !== 'playing') return;
+  if (defenseMode) {
+    defenseMode = false;
+    document.getElementById('defendbtn').classList.remove('active');
+    document.getElementById('defendbtn').textContent = 'Defend';
+    updateDefenseBar();
+    renderHand();
+  }
   phase = 'waiting';
   selected = false;
   reachable = new Map();
@@ -704,6 +990,11 @@ function advanceTurn() {
   army.movesLeft = 3;
   const drew = unitPool.length ? 3 : 0;
   drawCards(3);
+
+  // AI income
+  aiState.gold += 5;
+  aiState.attackCD--;
+
   phase = 'playing';
   const btn = document.getElementById('endbtn');
   btn.disabled = false;
@@ -712,7 +1003,14 @@ function advanceTurn() {
   log(`Turn ${turn} begins. +${goldIncome} gold. ${drewMsg}`);
   update();
   renderHand();
+  renderSpellBar();
   render();
+
+  // AI attacks after a short delay so player sees the new turn state first
+  if (aiState.attackCD <= 0) {
+    aiState.attackCD = 3 + rng(0, 2);
+    setTimeout(resolveIncomingAttack, 900);
+  }
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────
@@ -727,6 +1025,7 @@ function update() {
     document.getElementById('manaDisplay').style.display = '';
     document.getElementById('sMana').textContent = mana;
   }
+  renderSpellBar();
   // Show enemy health label dynamically
   let enemyEl = document.getElementById('sEnemyHealth');
   if (!enemyEl) {
@@ -746,7 +1045,12 @@ function renderHand() {
   for (const c of hand) {
     const div = document.createElement('div');
     const isCommitted = committed.has(c.id);
-    div.className = 'card' + (c.dying ? ' dying' : '') + (isCommitted ? ' committed' : '');
+    const isDefending = defenders.has(c.id);
+    let cls = 'card';
+    if (c.dying) cls += ' dying';
+    else if (isCommitted) cls += ' committed';
+    else if (isDefending) cls += ' defending';
+    div.className = cls;
     div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b><span>ATK ${c.atk}  DEF ${c.def}</span>`;
     if ((phase === 'capturing' || phase === 'war') && !c.dying) {
       div.style.cursor = 'pointer';
@@ -755,6 +1059,14 @@ function renderHand() {
         else committed.add(c.id);
         if (phase === 'capturing') updateCaptureBar();
         else updateWarBar();
+        renderHand();
+      };
+    } else if (defenseMode && !c.dying) {
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        if (defenders.has(c.id)) defenders.delete(c.id);
+        else defenders.add(c.id);
+        updateDefenseBar();
         renderHand();
       };
     }
@@ -901,6 +1213,8 @@ canvas.addEventListener('click', e => {
   const { q, r } = p2h(e.clientX - rect.left - ox, e.clientY - rect.top - oy);
   const k = tkey(q, r);
   if (!tiles.has(k)) return;
+
+  if (phase === 'spell') { resolveSpellTarget(q, r); return; }
 
   // While capturing: clicking army re-opens capture UI on current POI
   if (phase === 'capturing') {
