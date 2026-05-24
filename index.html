@@ -101,6 +101,57 @@ canvas { flex: 1; display: block; width: 100%; }
   font-family: monospace;
   font-size: 12px;
 }
+/* ── War Party bar ── */
+#warbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #1a0808;
+  border-bottom: 1px solid #5a1010;
+  font-size: 12px;
+  color: #e08080;
+}
+#warbar.active { display: flex; }
+#warbtn {
+  background: #7a1010;
+  color: #ffb0b0;
+  border: 1px solid #a03030;
+  padding: 3px 12px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+}
+#warbtn:disabled { background: #2a1010; color: #604040; cursor: default; border-color: #3a1818; }
+/* ── Combat result overlay ── */
+#combatoverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+}
+#combatoverlay.hidden { display: none; }
+#combatpanel {
+  background: #161b22;
+  border: 1px solid #5a1010;
+  border-radius: 6px;
+  padding: 18px 22px;
+  width: min(480px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#combatpanel h2 { font-size: 13px; color: #e08080; margin-bottom: 12px; letter-spacing: 1px; }
+#combatlog { font-size: 12px; line-height: 1.7; color: #c8c8c8; white-space: pre-wrap; }
+#combatlog .win  { color: #60d060; font-weight: bold; }
+#combatlog .lose { color: #e05050; font-weight: bold; }
+#combatlog .dim  { color: #6a7a6a; }
+#combatlog .hit  { color: #f0c040; }
+#closecombat {
+  margin-top: 14px;
+  background: #238636; color: #fff;
+  border: none; padding: 5px 18px;
+  cursor: pointer; font-family: monospace; font-size: 13px;
+}
 /* ── Build overlay ── */
 #buildoverlay {
   position: fixed; inset: 0;
@@ -162,7 +213,19 @@ canvas { flex: 1; display: block; width: 100%; }
     <button id="capturebtn" onclick="confirmCapture()" disabled>Capture!</button>
     <button id="cancelbtn" onclick="cancelCapture()">Cancel</button>
   </div>
+  <div id="warbar">
+    <span id="warinfo"></span>
+    <button id="warbtn" onclick="launchWarParty()" disabled>Attack (1g)</button>
+    <button class="cancelbtn" onclick="cancelWar()">Cancel</button>
+  </div>
   <div id="hand"></div>
+</div>
+<div id="combatoverlay" class="hidden">
+  <div id="combatpanel">
+    <h2>⚔ WAR PARTY COMBAT</h2>
+    <div id="combatlog"></div>
+    <button id="closecombat" onclick="closeCombat()">OK</button>
+  </div>
 </div>
 
 <script>
@@ -249,15 +312,15 @@ function revealAround(q, r) {
 }
 
 // ── Game state ────────────────────────────────────────────────────────────
-let turn = 1, gold = 5, health = 10;
+let turn = 1, gold = 5, health = 10, enemyHealth = 10;
 let army = { q: 5, r: 0, movesLeft: 3 };
 let hand = [];         // [{ id, name, atk, def, dying }]
 let cardIdSeq = 0;
 let selected = false;
-let phase = 'playing'; // 'playing' | 'capturing' | 'waiting'
-let captureTarget = null; // { q, r } of POI being captured
-let committed = new Set(); // card ids selected for capture
-// reachable: Map<tkey, steps_cost> — BFS from army with movesLeft budget
+let phase = 'playing'; // 'playing' | 'capturing' | 'war' | 'waiting'
+let captureTarget = null;
+let committed = new Set(); // card ids selected for capture or war
+// reachable: Map<tkey, steps_cost>
 let reachable = new Map();
 
 // ── BFS reachable ─────────────────────────────────────────────────────────
@@ -487,9 +550,139 @@ function confirmCapture() {
   render();
 }
 
+// ── War Party ─────────────────────────────────────────────────────────────
+function generateAIDefense() {
+  const count = Math.max(2, Math.min(2 + Math.floor(turn / 2), 6));
+  const types = [UNIT_DEFS.Warrior, UNIT_DEFS.Archer, UNIT_DEFS.Assassin];
+  return Array.from({ length: count }, () => ({ ...types[rng(0, types.length - 1)] }));
+}
+
+function enterWar() {
+  if (gold < 1) { log('Need at least 1 gold to send a War Party.'); return; }
+  phase = 'war';
+  committed = new Set();
+  selected = false;
+  reachable = new Map();
+  document.getElementById('warbar').classList.add('active');
+  updateWarBar();
+  renderHand();
+  render();
+}
+
+function cancelWar() {
+  phase = 'playing';
+  committed = new Set();
+  document.getElementById('warbar').classList.remove('active');
+  log('War Party cancelled.');
+  renderHand();
+}
+
+function updateWarBar() {
+  const atk = hand.filter(c => committed.has(c.id) && !c.dying)
+                  .reduce((s, c) => s + c.atk, 0);
+  const count = hand.filter(c => committed.has(c.id) && !c.dying).length;
+  document.getElementById('warinfo').textContent =
+    `Select your attacking force. Committed: ${count} unit${count !== 1 ? 's' : ''}, ATK ${atk}`;
+  document.getElementById('warbtn').disabled = count === 0 || gold < 1;
+}
+
+function launchWarParty() {
+  const attackers = hand.filter(c => committed.has(c.id) && !c.dying);
+  if (!attackers.length || gold < 1) return;
+  gold -= 1;
+
+  const defenders = generateAIDefense();
+  const result = buildCombatLog(attackers, defenders);
+
+  document.getElementById('warbar').classList.remove('active');
+  phase = 'playing';
+  committed = new Set();
+
+  // Show result modal
+  document.getElementById('combatlog').innerHTML = result.html;
+  document.getElementById('combatoverlay').classList.remove('hidden');
+
+  if (result.win) {
+    enemyHealth = Math.max(0, enemyHealth - 1);
+  }
+
+  update();
+  renderHand();
+  render();
+}
+
+function buildCombatLog(attackers, defenders) {
+  let lines = [];
+  const tag = (cls, text) => `<span class="${cls}">${text}</span>`;
+
+  // Buff phase
+  lines.push(tag('dim', '── Buff Phase ──────────────────'));
+  lines.push(tag('dim', '(No auras active yet)'));
+
+  // Pre-battle — attacker first (Speed 6 > 5)
+  lines.push('');
+  lines.push(tag('dim', '── Pre-Battle (attacker speed 6 > defender speed 5) ──'));
+
+  let defCards = [...defenders];
+  let defDebuf = 0;
+
+  for (const c of attackers) {
+    if (c.name === 'Archer') {
+      defDebuf += 1;
+      lines.push(tag('hit', `  Archer fires → enemy DEF −1`));
+    }
+  }
+  for (const c of attackers) {
+    if (c.name === 'Assassin') {
+      const idx = defCards.findIndex(d => d.def < 3);
+      if (idx >= 0) {
+        const removed = defCards.splice(idx, 1)[0];
+        lines.push(tag('hit', `  Assassin strikes → removes enemy ${removed.name} (DEF ${removed.def})`));
+      } else {
+        lines.push(tag('dim', `  Assassin: no target with DEF < 3`));
+      }
+    }
+  }
+
+  // Combat totals
+  const atkTotal = attackers.reduce((s, c) => s + c.atk, 0);
+  const rawDef   = defCards.reduce((s, c) => s + c.def, 0);
+  const defTotal = Math.max(0, rawDef - defDebuf);
+
+  lines.push('');
+  lines.push(tag('dim', '── Combat ──────────────────────'));
+  lines.push(`  Your force:   ${attackers.map(c => `${c.name}(ATK ${c.atk})`).join(' ')}`);
+  lines.push(`  Enemy defense: ${defenders.map(c => `${c.name}(DEF ${c.def})`).join(' ')}`);
+  if (defDebuf || defCards.length < defenders.length)
+    lines.push(tag('dim', `  After pre-battle: enemy DEF ${rawDef}−${defDebuf} = ${defTotal} (${defenders.length - defCards.length} unit(s) removed)`));
+  lines.push('');
+  lines.push(`  ATK ${atkTotal}  vs  DEF ${defTotal}`);
+
+  const win = atkTotal > defTotal;
+  lines.push('');
+  if (win) {
+    lines.push(tag('win', `  VICTORY! Enemy kingdom: ${enemyHealth} → ${Math.max(0, enemyHealth - 1)} health`));
+    if (enemyHealth - 1 <= 0) lines.push(tag('win', '  ★ ENEMY KINGDOM DESTROYED! ★'));
+  } else {
+    lines.push(tag('lose', `  DEFEAT. Enemy defense held.`));
+  }
+  lines.push('');
+  lines.push(tag('dim', '(Defending army is spent and disappears.)'));
+
+  return { html: lines.join('\n'), win };
+}
+
+function closeCombat() {
+  document.getElementById('combatoverlay').classList.add('hidden');
+  if (enemyHealth <= 0) {
+    log('★ YOU WIN! The enemy kingdom has fallen! ★');
+  }
+}
+
 // ── Turn ──────────────────────────────────────────────────────────────────
 function endTurn() {
   if (phase === 'capturing') cancelCapture();
+  if (phase === 'war') cancelWar();
   if (phase !== 'playing') return;
   phase = 'waiting';
   selected = false;
@@ -534,6 +727,16 @@ function update() {
     document.getElementById('manaDisplay').style.display = '';
     document.getElementById('sMana').textContent = mana;
   }
+  // Show enemy health label dynamically
+  let enemyEl = document.getElementById('sEnemyHealth');
+  if (!enemyEl) {
+    const span = document.createElement('span');
+    span.innerHTML = `Enemy <b id="sEnemyHealth">${enemyHealth}</b> ♥`;
+    span.style.color = '#e08080';
+    document.getElementById('endbtn').before(span);
+  } else {
+    enemyEl.textContent = enemyHealth;
+  }
 }
 
 function renderHand() {
@@ -545,12 +748,13 @@ function renderHand() {
     const isCommitted = committed.has(c.id);
     div.className = 'card' + (c.dying ? ' dying' : '') + (isCommitted ? ' committed' : '');
     div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b><span>ATK ${c.atk}  DEF ${c.def}</span>`;
-    if (phase === 'capturing' && !c.dying) {
+    if ((phase === 'capturing' || phase === 'war') && !c.dying) {
       div.style.cursor = 'pointer';
       div.onclick = () => {
         if (committed.has(c.id)) committed.delete(c.id);
         else committed.add(c.id);
-        updateCaptureBar();
+        if (phase === 'capturing') updateCaptureBar();
+        else updateWarBar();
         renderHand();
       };
     }
@@ -668,22 +872,24 @@ function render() {
   }
 
   // Enemy castle (always visible — road reveals it at start)
-  const et = tiles.get(tkey(-5, 0));
-  if (et) {
+  {
     const { x, y } = h2p(-5, 0);
     const cx = ox + x, cy = oy + y;
     ctx.beginPath();
     ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = '#b03030';
+    ctx.fillStyle = enemyHealth <= 0 ? '#444' : '#b03030';
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(SIZE * 0.3)}px monospace`;
+    ctx.font = `bold ${Math.floor(SIZE * 0.28)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('E', cx, cy);
+    ctx.fillText('E', cx, cy - SIZE * 0.08);
+    ctx.font = `${Math.floor(SIZE * 0.22)}px monospace`;
+    ctx.fillStyle = '#ffb0b0';
+    ctx.fillText(`♥${enemyHealth}`, cx, cy + SIZE * 0.2);
   }
 }
 
@@ -707,6 +913,8 @@ canvas.addEventListener('click', e => {
 
   // Toggle army selection
   if (q === army.q && r === army.r) {
+    // If on enemy city, re-open war UI
+    if (q === -5 && r === 0 && enemyHealth > 0) { enterWar(); return; }
     // If standing on an uncaptured POI, re-open capture instead of just selecting
     const here = tiles.get(k);
     if (here && here.poi && here.stack !== null) {
@@ -731,8 +939,9 @@ canvas.addEventListener('click', e => {
     if (army.movesLeft === 0) { selected = false; reachable = new Map(); }
     const t = tiles.get(k);
     if (q === -5 && r === 0) {
-      log(`Reached enemy city! Send a War Party to attack. (Cost: 1 gold — coming next step.)`);
       update(); render();
+      if (enemyHealth > 0) enterWar();
+      else log('The enemy kingdom has already fallen.');
     } else if (t.poi && t.stack !== null) {
       update(); render();
       enterCapture(q, r); // auto-open capture UI
