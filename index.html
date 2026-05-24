@@ -297,15 +297,11 @@ function render() {
     }
 
     let fill = '#12202e';
-    if (t.road) fill = '#1e1508';
-    if (t.poi)  fill = '#132613';
+    if (t.poi)   fill = '#132613';
     if (isReach) fill = '#0e2e30';
     ctx.fillStyle = fill;
     ctx.fill();
-    let stroke = '#263040';
-    if (t.road) stroke = '#4a3820';
-    if (isReach) stroke = '#38a8a8';
-    ctx.strokeStyle = stroke;
+    ctx.strokeStyle = isReach ? '#38a8a8' : '#263040';
     ctx.lineWidth = isReach ? 2 : 1;
     ctx.stroke();
 
@@ -315,6 +311,41 @@ function render() {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`~${t.stack}`, cx, cy);
+    }
+  }
+
+  // Road: draw a dirt path through road tile centers, ordered west→east
+  {
+    const roadOrdered = [...tiles.values()]
+      .filter(t => t.road)
+      .sort((a, b) => a.q - b.q);
+    if (roadOrdered.length > 1) {
+      const pts = roadOrdered.map(t => { const p = h2p(t.q, t.r); return [ox + p.x, oy + p.y]; });
+      // Border (dark)
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.strokeStyle = '#2e1f08';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+      // Surface (sandy)
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.strokeStyle = '#9c7a40';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      // Center dashes
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.strokeStyle = '#c8a060';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 10]);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
 
