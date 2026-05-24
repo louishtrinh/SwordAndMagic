@@ -197,8 +197,8 @@ Spells have a tier and level; upgradeable.
 | Simultaneous turns (waiting phase, opponent sim) | Done |
 | Turn loop (+5 gold/turn, Townhall draws 3 cards) | Done |
 | Card hand display | Done |
-| POI capture mechanic | Next |
-| Buildings (T1) | Pending |
+| POI capture mechanic | Done |
+| Buildings (T1) | Next |
 | War Party / kingdom combat | Pending |
 | AI opponent | Pending |
 | Firebase multiplayer | Pending |
