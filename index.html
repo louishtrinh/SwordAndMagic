@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sword & Magic</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117;
+  color: #e6e6e6;
+  font-family: monospace;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 6px 14px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+#topbar b { color: #f0c040; }
+#endbtn {
+  margin-left: auto;
+  background: #238636;
+  color: #fff;
+  border: none;
+  padding: 5px 18px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 13px;
+}
+#endbtn:hover { background: #2ea043; }
+canvas { flex: 1; display: block; width: 100%; }
+#bottombar {
+  background: #161b22;
+  border-top: 1px solid #30363d;
+  flex-shrink: 0;
+}
+#logline {
+  font-size: 11px;
+  color: #8b949e;
+  padding: 3px 12px;
+  border-bottom: 1px solid #21262d;
+}
+#hand {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  min-height: 74px;
+  overflow-x: auto;
+  align-items: flex-start;
+}
+.card {
+  border: 1px solid #30363d;
+  padding: 5px 8px;
+  background: #21262d;
+  min-width: 68px;
+  font-size: 11px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.card b { color: #79c0ff; display: block; margin-bottom: 3px; }
+.card span { color: #8b949e; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span>Turn <b id="sTurn">1</b></span>
+  <span>Gold <b id="sGold">5</b></span>
+  <span>Health <b id="sHealth">10</b></span>
+  <span>Moves <b id="sMoves">3</b></span>
+  <button id="endbtn" onclick="endTurn()">End Turn</button>
+</div>
+<canvas id="c"></canvas>
+<div id="bottombar">
+  <div id="logline">Click your army (P) to select it, then click a highlighted tile to move.</div>
+  <div id="hand"></div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const SQ3 = Math.sqrt(3);
+const SIZE = 40;
+
+// ── Hex math (pointy-top axial) ───────────────────────────────────────────
+
+function h2p(q, r) {
+  return { x: SIZE * (SQ3 * q + SQ3 / 2 * r), y: SIZE * 1.5 * r };
+}
+
+function p2h(x, y) {
+  const q = (SQ3 / 3 * x - y / 3) / SIZE;
+  const r = (2 / 3 * y) / SIZE;
+  let rq = Math.round(q), rr = Math.round(r), rs = Math.round(-q - r);
+  const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs + q + r);
+  if (dq > dr && dq > ds) rq = -rr - rs;
+  else if (dr > ds) rr = -rq - rs;
+  return { q: rq, r: rr };
+}
+
+const DIRS = [[1,0],[-1,0],[1,-1],[-1,1],[0,-1],[0,1]];
+
+// ── Map ───────────────────────────────────────────────────────────────────
+// tile: { q, r, poi, stack, revealed }
+const tiles = new Map();
+const tkey = (q, r) => `${q},${r}`;
+
+function rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+
+function buildMap() {
+  // Center cluster: radius 2
+  for (let q = -2; q <= 2; q++) {
+    for (let r = Math.max(-2, -q - 2); r <= Math.min(2, -q + 2); r++) {
+      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false });
+    }
+  }
+  // 6 arms: 3 hexes each in each primary direction
+  for (const [dq, dr] of DIRS) {
+    for (let i = 3; i <= 5; i++) {
+      const q = dq * i, r = dr * i;
+      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false });
+    }
+  }
+  // POIs on neutral arms and center; player (E arm) and AI (W arm) have no POIs
+  [
+    [0,  0,  rng(12, 18)],  // center — most contested
+    [5,  -5, rng(8,  14)],  // NE arm end
+    [-5, 5,  rng(8,  14)],  // SW arm end
+    [0,  -5, rng(7,  12)],  // NW arm end
+    [0,  5,  rng(7,  12)],  // SE arm end
+    [4,  -4, rng(3,  7)],   // NE mid
+    [-4, 4,  rng(3,  7)],   // SW mid
+    [0,  -4, rng(3,  7)],   // NW mid
+    [0,  4,  rng(3,  7)],   // SE mid
+    [3,  0,  rng(3,  6)],   // E arm near-center (first POI player encounters)
+    [-3, 0,  rng(3,  6)],   // W arm near-center (near AI)
+  ].forEach(([q, r, s]) => {
+    const t = tiles.get(tkey(q, r));
+    if (t) { t.poi = true; t.stack = s; }
+  });
+}
+
+function revealAround(q, r) {
+  const mark = (tq, tr) => { const t = tiles.get(tkey(tq, tr)); if (t) t.revealed = true; };
+  mark(q, r);
+  for (const [dq, dr] of DIRS) mark(q + dq, r + dr);
+}
+
+// ── Game state ────────────────────────────────────────────────────────────
+let turn = 1, gold = 5, health = 10;
+let army = { q: 5, r: 0, movesLeft: 3 };
+let hand = [];
+let selected = false;
+// reachable: Map<tkey, steps_cost> — BFS from army with movesLeft budget
+let reachable = new Map();
+
+// ── BFS reachable ─────────────────────────────────────────────────────────
+function computeReachable() {
+  if (!selected || army.movesLeft === 0) return new Map();
+  const costs = new Map([[tkey(army.q, army.r), 0]]);
+  const queue = [{ q: army.q, r: army.r, steps: 0 }];
+  while (queue.length) {
+    const { q, r, steps } = queue.shift();
+    if (steps >= army.movesLeft) continue;
+    for (const [dq, dr] of DIRS) {
+      const nq = q + dq, nr = r + dr, k = tkey(nq, nr);
+      if (!tiles.has(k) || costs.has(k)) continue;
+      costs.set(k, steps + 1);
+      queue.push({ q: nq, r: nr, steps: steps + 1 });
+    }
+  }
+  costs.delete(tkey(army.q, army.r));
+  return costs;
+}
+
+// ── Cards ─────────────────────────────────────────────────────────────────
+const POOL = [
+  { name: 'Warrior',  atk: 2, def: 2 },
+  { name: 'Archer',   atk: 2, def: 1 },
+  { name: 'Assassin', atk: 3, def: 0 },
+];
+
+function drawCards(n) {
+  for (let i = 0; i < n; i++) hand.push({ ...POOL[rng(0, POOL.length - 1)] });
+}
+
+// ── Turn ──────────────────────────────────────────────────────────────────
+function endTurn() {
+  gold += 5;
+  turn++;
+  army.movesLeft = 3;
+  selected = false;
+  reachable = new Map();
+  drawCards(3);
+  log(`Turn ${turn}. +5 gold. Townhall drew 3 cards.`);
+  update();
+  renderHand();
+  render();
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────
+function log(msg) { document.getElementById('logline').textContent = msg; }
+
+function update() {
+  document.getElementById('sTurn').textContent = turn;
+  document.getElementById('sGold').textContent = gold;
+  document.getElementById('sHealth').textContent = health;
+  document.getElementById('sMoves').textContent = army.movesLeft;
+}
+
+function renderHand() {
+  const el = document.getElementById('hand');
+  el.innerHTML = '';
+  if (!hand.length) { el.textContent = 'Hand empty.'; return; }
+  for (const c of hand) {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<b>${c.name}</b><span>ATK ${c.atk}  DEF ${c.def}</span>`;
+    el.appendChild(div);
+  }
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────
+function resize() {
+  canvas.width = canvas.offsetWidth || 900;
+  canvas.height = canvas.offsetHeight || 520;
+}
+
+function hexPath(cx, cy) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + (Math.PI / 3) * i; // pointy-top
+    i === 0
+      ? ctx.moveTo(cx + SIZE * Math.cos(a), cy + SIZE * Math.sin(a))
+      : ctx.lineTo(cx + SIZE * Math.cos(a), cy + SIZE * Math.sin(a));
+  }
+  ctx.closePath();
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const ox = canvas.width / 2, oy = canvas.height / 2;
+
+  for (const t of tiles.values()) {
+    const { x, y } = h2p(t.q, t.r);
+    const cx = ox + x, cy = oy + y;
+    const k = tkey(t.q, t.r);
+    const isReach = reachable.has(k);
+
+    hexPath(cx, cy);
+
+    if (!t.revealed) {
+      ctx.fillStyle = '#0d1117';
+      ctx.fill();
+      ctx.strokeStyle = '#1c2128';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      continue;
+    }
+
+    ctx.fillStyle = t.poi ? '#132613' : '#12202e';
+    if (isReach) ctx.fillStyle = '#0e2e30';
+    ctx.fill();
+    ctx.strokeStyle = isReach ? '#38a8a8' : '#263040';
+    ctx.lineWidth = isReach ? 2 : 1;
+    ctx.stroke();
+
+    if (t.poi) {
+      ctx.fillStyle = '#f0c040';
+      ctx.font = `bold ${Math.floor(SIZE * 0.36)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`~${t.stack}`, cx, cy);
+    }
+  }
+
+  // Player army
+  {
+    const { x, y } = h2p(army.q, army.r);
+    const cx = ox + x, cy = oy + y;
+    ctx.beginPath();
+    ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = selected ? '#5ab0f0' : '#2e70c0';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(SIZE * 0.3)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('P', cx, cy);
+  }
+
+  // Enemy castle (only once revealed)
+  const et = tiles.get(tkey(-5, 0));
+  if (et && et.revealed) {
+    const { x, y } = h2p(-5, 0);
+    const cx = ox + x, cy = oy + y;
+    ctx.beginPath();
+    ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#b03030';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(SIZE * 0.3)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('E', cx, cy);
+  }
+}
+
+// ── Input ─────────────────────────────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const ox = canvas.width / 2, oy = canvas.height / 2;
+  const { q, r } = p2h(e.clientX - rect.left - ox, e.clientY - rect.top - oy);
+  const k = tkey(q, r);
+  if (!tiles.has(k)) return;
+
+  // Toggle army selection
+  if (q === army.q && r === army.r) {
+    selected = !selected;
+    reachable = computeReachable();
+    log(selected
+      ? `Army selected — ${army.movesLeft} moves left. Click a highlighted tile.`
+      : 'Deselected.');
+    render();
+    return;
+  }
+
+  // Move to reachable tile
+  if (selected && reachable.has(k)) {
+    army.movesLeft -= reachable.get(k);
+    army.q = q; army.r = r;
+    revealAround(q, r);
+    reachable = computeReachable();
+    if (army.movesLeft === 0) { selected = false; reachable = new Map(); }
+    const t = tiles.get(k);
+    if (t.poi) {
+      log(`POI — neutral stack power ~${t.stack}. (Capture coming next step.)`);
+    } else {
+      log(`Moved to (${q},${r}). Moves left: ${army.movesLeft}.`);
+    }
+    update();
+    render();
+    return;
+  }
+
+  if (selected) { log('Cannot reach that hex with remaining moves.'); return; }
+
+  // Info click on revealed tile
+  const t = tiles.get(k);
+  if (!t.revealed) { log('Shrouded in fog of war.'); return; }
+  log(t.poi
+    ? `POI at (${q},${r}) — neutral stack power ~${t.stack}.`
+    : `Plains at (${q},${r}).`);
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => { resize(); render(); });
+resize();
+buildMap();
+revealAround(army.q, army.r);
+drawCards(3);
+render();
+update();
+renderHand();
+</script>
+</body>
+</html>
