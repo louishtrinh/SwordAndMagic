@@ -199,7 +199,7 @@ Spells have a tier and level; upgradeable.
 | Card hand display | Done |
 | POI capture mechanic | Done |
 | Buildings (T1) | Done |
-| War Party / kingdom combat | Next |
-| AI opponent | Pending |
+| War Party / kingdom combat | Done |
+| AI opponent | Next |
 | Firebase multiplayer | Pending |
 | Spells | Pending |
