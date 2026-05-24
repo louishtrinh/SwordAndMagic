@@ -101,6 +101,40 @@ canvas { flex: 1; display: block; width: 100%; }
   font-family: monospace;
   font-size: 12px;
 }
+/* ── Build overlay ── */
+#buildoverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+#buildoverlay.hidden { display: none; }
+#buildpanel {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 16px;
+  width: min(720px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+}
+#buildpanel h2 { font-size: 13px; color: #c8c8c8; margin-bottom: 10px; }
+#buildlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.bcard { border: 1px solid #30363d; padding: 8px 10px; background: #21262d; border-radius: 4px; }
+.bcard.built { opacity: 0.55; }
+.bcard h3 { font-size: 12px; color: #79c0ff; margin-bottom: 3px; }
+.bcard p { font-size: 11px; color: #8b949e; margin-bottom: 6px; line-height: 1.4; }
+.bcard .cost { font-size: 11px; color: #f0c040; margin-bottom: 5px; }
+.bbtn { background: #238636; color: #fff; border: none; padding: 3px 10px; cursor: pointer; font-family: monospace; font-size: 11px; }
+.bbtn:disabled { background: #21262d; color: #484f58; cursor: default; }
+.upgrades { margin-top: 8px; border-top: 1px solid #30363d; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.urow { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8b949e; }
+.urow span { flex: 1; }
+.ubtn { background: #1a3a1a; color: #70c070; border: 1px solid #2a5a2a; padding: 1px 7px; cursor: pointer; font-family: monospace; font-size: 10px; }
+.ubtn:disabled { background: #1a1a1a; color: #484f58; cursor: default; border-color: #30363d; }
+#closebuild { margin-top: 12px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
+#buildbtn { background: #21262d; color: #c8c8c8; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#buildbtn:hover { background: #30363d; }
 </style>
 </head>
 <body>
@@ -109,7 +143,16 @@ canvas { flex: 1; display: block; width: 100%; }
   <span>Gold <b id="sGold">5</b></span>
   <span>Health <b id="sHealth">10</b></span>
   <span>Moves <b id="sMoves">3</b></span>
+  <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
+  <button id="buildbtn" onclick="openBuild()">Build</button>
   <button id="endbtn" onclick="endTurn()">End Turn</button>
+</div>
+<div id="buildoverlay" class="hidden">
+  <div id="buildpanel">
+    <h2>Buildings — 4 gold each</h2>
+    <div id="buildlist"></div>
+    <button id="closebuild" onclick="closeBuild()">Close</button>
+  </div>
 </div>
 <canvas id="c"></canvas>
 <div id="bottombar">
@@ -236,16 +279,151 @@ function computeReachable() {
   return costs;
 }
 
-// ── Cards ─────────────────────────────────────────────────────────────────
-const POOL = [
-  { name: 'Warrior',  atk: 2, def: 2 },
-  { name: 'Archer',   atk: 2, def: 1 },
-  { name: 'Assassin', atk: 3, def: 0 },
-];
+// ── Units & Buildings ─────────────────────────────────────────────────────
+const UNIT_DEFS = {
+  Warrior:    { name: 'Warrior',    atk: 2, def: 2 },
+  Archer:     { name: 'Archer',     atk: 2, def: 1 },
+  Assassin:   { name: 'Assassin',   atk: 3, def: 0 },
+  Apprentice: { name: 'Apprentice', atk: 2, def: 1 },
+};
+
+// unitPool: array of def refs Townhall draws from (buildings add to this)
+let unitPool = [];
+let buildings = new Set(); // built building ids
+let goldIncome = 5;
+let mana = 0, manaIncome = 0;
+// trainingLevels: { 'Warrior-atk': n, 'Warrior-def': n, ... } — upgrade counts
+const trainingLevels = {};
+
+function getUnitStats(def) {
+  const up = trainingLevels;
+  return {
+    name: def.name,
+    atk: def.atk + (up[`${def.name}-atk`] || 0),
+    def: def.def + (up[`${def.name}-def`] || 0),
+  };
+}
+
+function makeCard(def) {
+  return { id: cardIdSeq++, dying: false, ...getUnitStats(def) };
+}
 
 function drawCards(n) {
+  if (!unitPool.length) return;
   for (let i = 0; i < n; i++) {
-    hand.push({ id: cardIdSeq++, dying: false, ...POOL[rng(0, POOL.length - 1)] });
+    hand.push(makeCard(unitPool[rng(0, unitPool.length - 1)]));
+  }
+}
+
+// ── Building definitions ───────────────────────────────────────────────────
+const BUILDING_DEFS = [
+  {
+    id: 'barracks', name: 'Barracks', cost: 4,
+    desc: 'Adds Warrior to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Warrior),
+  },
+  {
+    id: 'archery', name: 'Archery Range', cost: 4,
+    desc: 'Adds Archer to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Archer),
+  },
+  {
+    id: 'thieves', name: 'Thieves Guild', cost: 4,
+    desc: 'Adds Assassin to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Assassin),
+  },
+  {
+    id: 'marketplace', name: 'Marketplace', cost: 4,
+    desc: '+2 gold income per turn.',
+    onBuild: () => { goldIncome += 2; },
+  },
+  {
+    id: 'training', name: 'Training Ground', cost: 4,
+    desc: 'Upgrade unit stats permanently (gold cost scales with upgrades).',
+    onBuild: () => {},
+  },
+  {
+    id: 'school', name: 'School', cost: 4,
+    desc: 'Adds Apprentice to pool. Unlocks Mana (+2/turn).',
+    onBuild: () => { unitPool.push(UNIT_DEFS.Apprentice); manaIncome += 2; },
+  },
+];
+
+function buildBuilding(id) {
+  const def = BUILDING_DEFS.find(b => b.id === id);
+  if (!def || buildings.has(id) || gold < def.cost) return;
+  gold -= def.cost;
+  buildings.add(id);
+  def.onBuild();
+  log(`Built ${def.name}.`);
+  update();
+  renderBuildPanel();
+}
+
+function trainUnit(unitName, stat) {
+  if (!buildings.has('training')) return;
+  const lvlKey = `${unitName}-${stat}`;
+  const cost = 1 + (trainingLevels[lvlKey] || 0);
+  if (gold < cost) return;
+  gold -= cost;
+  trainingLevels[lvlKey] = (trainingLevels[lvlKey] || 0) + 1;
+  // Apply retroactively to cards already in hand
+  hand.forEach(c => { if (c.name === unitName && !c.dying) c[stat]++; });
+  update();
+  renderBuildPanel();
+  renderHand();
+}
+
+function openBuild() {
+  renderBuildPanel();
+  document.getElementById('buildoverlay').classList.remove('hidden');
+}
+
+function closeBuild() {
+  document.getElementById('buildoverlay').classList.add('hidden');
+}
+
+function renderBuildPanel() {
+  const list = document.getElementById('buildlist');
+  list.innerHTML = '';
+  for (const b of BUILDING_DEFS) {
+    const built = buildings.has(b.id);
+    const canAfford = gold >= b.cost;
+    const div = document.createElement('div');
+    div.className = 'bcard' + (built ? ' built' : '');
+    let html = `<h3>${b.name}</h3><p>${b.desc}</p>`;
+    if (!built) {
+      html += `<div class="cost">${b.cost} gold</div>`;
+      html += `<button class="bbtn" onclick="buildBuilding('${b.id}')" ${(!canAfford) ? 'disabled' : ''}>Build</button>`;
+    } else {
+      html += `<div class="cost" style="color:#484f58">Built ✓</div>`;
+    }
+    // Training Ground: show upgrade rows when built
+    if (b.id === 'training' && built) {
+      const trainableUnits = Object.values(UNIT_DEFS).filter(u =>
+        unitPool.some(p => p.name === u.name)
+      );
+      if (trainableUnits.length) {
+        html += '<div class="upgrades">';
+        for (const u of trainableUnits) {
+          for (const stat of ['atk', 'def']) {
+            const lvl = trainingLevels[`${u.name}-${stat}`] || 0;
+            const cost = 1 + lvl;
+            const label = stat.toUpperCase();
+            html += `<div class="urow">
+              <span>${u.name} +${label} (lv${lvl})</span>
+              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')"
+                ${gold < cost ? 'disabled' : ''}>${cost}g</button>
+            </div>`;
+          }
+        }
+        html += '</div>';
+      } else {
+        html += '<div class="upgrades" style="font-size:11px;color:#484f58">Build unit buildings first.</div>';
+      }
+    }
+    div.innerHTML = html;
+    list.appendChild(div);
   }
 }
 
@@ -295,8 +473,9 @@ function confirmCapture() {
   // Clear the POI stack (captured)
   t.poi = false; t.stack = null;
 
-  // Reward: 1 random unit drops into hand
-  const reward = { id: cardIdSeq++, dying: false, ...POOL[rng(0, POOL.length - 1)] };
+  // Reward: 1 random unit from pool (fallback Warrior if pool empty)
+  const rewardPool = unitPool.length ? unitPool : [UNIT_DEFS.Warrior];
+  const reward = makeCard(rewardPool[rng(0, rewardPool.length - 1)]);
   hand.push(reward);
 
   phase = 'playing';
@@ -325,16 +504,19 @@ function endTurn() {
 }
 
 function advanceTurn() {
-  hand = hand.filter(c => !c.dying); // dying units expire
-  gold += 5;
+  hand = hand.filter(c => !c.dying);
+  gold += goldIncome;
+  mana += manaIncome;
   turn++;
   army.movesLeft = 3;
+  const drew = unitPool.length ? 3 : 0;
   drawCards(3);
   phase = 'playing';
   const btn = document.getElementById('endbtn');
   btn.disabled = false;
   btn.textContent = 'End Turn';
-  log(`Turn ${turn} begins. +5 gold. Townhall drew 3 cards.`);
+  const drewMsg = drew ? `Townhall drew ${drew} cards.` : 'Townhall has no unit pool yet — build Barracks!';
+  log(`Turn ${turn} begins. +${goldIncome} gold. ${drewMsg}`);
   update();
   renderHand();
   render();
@@ -348,6 +530,10 @@ function update() {
   document.getElementById('sGold').textContent = gold;
   document.getElementById('sHealth').textContent = health;
   document.getElementById('sMoves').textContent = army.movesLeft;
+  if (manaIncome > 0) {
+    document.getElementById('manaDisplay').style.display = '';
+    document.getElementById('sMana').textContent = mana;
+  }
 }
 
 function renderHand() {
@@ -572,10 +758,12 @@ window.addEventListener('resize', () => { resize(); render(); });
 resize();
 buildMap();
 revealAround(army.q, army.r);
-drawCards(3);
+// Starting garrison: 3 Warriors (free gift; Townhall pool starts empty until buildings are built)
+hand = [makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior)];
 render();
 update();
 renderHand();
+log('Build Barracks to start drawing units each turn. Starting garrison: 3 Warriors.');
 </script>
 </body>
 </html>
