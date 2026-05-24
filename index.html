@@ -35,7 +35,8 @@ body {
   font-family: monospace;
   font-size: 13px;
 }
-#endbtn:hover { background: #2ea043; }
+#endbtn:hover:not(:disabled) { background: #2ea043; }
+#endbtn:disabled { background: #2a3a2a; color: #6e9c6e; cursor: default; }
 canvas { flex: 1; display: block; width: 100%; }
 #bottombar {
   background: #161b22;
@@ -110,9 +111,12 @@ function p2h(x, y) {
 const DIRS = [[1,0],[-1,0],[1,-1],[-1,1],[0,-1],[0,1]];
 
 // ── Map ───────────────────────────────────────────────────────────────────
-// tile: { q, r, poi, stack, revealed }
+// tile: { q, r, poi, stack, revealed, road }
 const tiles = new Map();
 const tkey = (q, r) => `${q},${r}`;
+
+// Road: the revealed corridor connecting both cities
+const ROAD_TILES = new Set(['5,0','4,0','3,0','2,0','1,0','0,0','-1,0','-2,0','-3,0','-4,0','-5,0']);
 
 function rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
 
@@ -141,12 +145,20 @@ function buildMap() {
     [-4, 4,  rng(3,  7)],   // SW mid
     [0,  -4, rng(3,  7)],   // NW mid
     [0,  4,  rng(3,  7)],   // SE mid
-    [3,  0,  rng(3,  6)],   // E arm near-center (first POI player encounters)
-    [-3, 0,  rng(3,  6)],   // W arm near-center (near AI)
+    [3,  0,  rng(3,  6)],   // E road POI (first one player encounters)
+    [-3, 0,  rng(3,  6)],   // W road POI (near AI)
   ].forEach(([q, r, s]) => {
     const t = tiles.get(tkey(q, r));
     if (t) { t.poi = true; t.stack = s; }
   });
+
+  // Mark and reveal the road connecting both cities
+  for (const k of ROAD_TILES) {
+    const t = tiles.get(k);
+    if (t) { t.road = true; t.revealed = true; }
+  }
+  // Reveal one hex around each city so both feel like real starting areas
+  revealAround(-5, 0);
 }
 
 function revealAround(q, r) {
@@ -160,6 +172,7 @@ let turn = 1, gold = 5, health = 10;
 let army = { q: 5, r: 0, movesLeft: 3 };
 let hand = [];
 let selected = false;
+let phase = 'playing'; // 'playing' | 'waiting'
 // reachable: Map<tkey, steps_cost> — BFS from army with movesLeft budget
 let reachable = new Map();
 
@@ -195,13 +208,29 @@ function drawCards(n) {
 
 // ── Turn ──────────────────────────────────────────────────────────────────
 function endTurn() {
+  if (phase !== 'playing') return;
+  phase = 'waiting';
+  selected = false;
+  reachable = new Map();
+  const btn = document.getElementById('endbtn');
+  btn.disabled = true;
+  btn.textContent = 'Waiting for opponent...';
+  log('You ended your turn. Waiting for opponent...');
+  render();
+  // Simulate opponent ending their turn (1.5s delay)
+  setTimeout(advanceTurn, 1500);
+}
+
+function advanceTurn() {
   gold += 5;
   turn++;
   army.movesLeft = 3;
-  selected = false;
-  reachable = new Map();
   drawCards(3);
-  log(`Turn ${turn}. +5 gold. Townhall drew 3 cards.`);
+  phase = 'playing';
+  const btn = document.getElementById('endbtn');
+  btn.disabled = false;
+  btn.textContent = 'End Turn';
+  log(`Turn ${turn} begins. +5 gold. Townhall drew 3 cards.`);
   update();
   renderHand();
   render();
@@ -267,10 +296,16 @@ function render() {
       continue;
     }
 
-    ctx.fillStyle = t.poi ? '#132613' : '#12202e';
-    if (isReach) ctx.fillStyle = '#0e2e30';
+    let fill = '#12202e';
+    if (t.road) fill = '#1e1508';
+    if (t.poi)  fill = '#132613';
+    if (isReach) fill = '#0e2e30';
+    ctx.fillStyle = fill;
     ctx.fill();
-    ctx.strokeStyle = isReach ? '#38a8a8' : '#263040';
+    let stroke = '#263040';
+    if (t.road) stroke = '#4a3820';
+    if (isReach) stroke = '#38a8a8';
+    ctx.strokeStyle = stroke;
     ctx.lineWidth = isReach ? 2 : 1;
     ctx.stroke();
 
@@ -301,9 +336,9 @@ function render() {
     ctx.fillText('P', cx, cy);
   }
 
-  // Enemy castle (only once revealed)
+  // Enemy castle (always visible — road reveals it at start)
   const et = tiles.get(tkey(-5, 0));
-  if (et && et.revealed) {
+  if (et) {
     const { x, y } = h2p(-5, 0);
     const cx = ox + x, cy = oy + y;
     ctx.beginPath();
@@ -323,6 +358,7 @@ function render() {
 
 // ── Input ─────────────────────────────────────────────────────────────────
 canvas.addEventListener('click', e => {
+  if (phase !== 'playing') return;
   const rect = canvas.getBoundingClientRect();
   const ox = canvas.width / 2, oy = canvas.height / 2;
   const { q, r } = p2h(e.clientX - rect.left - ox, e.clientY - rect.top - oy);
@@ -348,7 +384,9 @@ canvas.addEventListener('click', e => {
     reachable = computeReachable();
     if (army.movesLeft === 0) { selected = false; reachable = new Map(); }
     const t = tiles.get(k);
-    if (t.poi) {
+    if (q === -5 && r === 0) {
+      log(`Reached enemy city! Send a War Party to attack. (Cost: 1 gold — coming next step.)`);
+    } else if (t.poi) {
       log(`POI — neutral stack power ~${t.stack}. (Capture coming next step.)`);
     } else {
       log(`Moved to (${q},${r}). Moves left: ${army.movesLeft}.`);
