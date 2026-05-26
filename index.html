@@ -445,10 +445,10 @@ function computeReachable() {
 
 // ── Units & Buildings ─────────────────────────────────────────────────────
 const UNIT_DEFS = {
-  Warrior:    { name: 'Warrior',    atk: 2, def: 2 },
-  Archer:     { name: 'Archer',     atk: 2, def: 1 },
-  Assassin:   { name: 'Assassin',   atk: 3, def: 0 },
-  Apprentice: { name: 'Apprentice', atk: 2, def: 1 },
+  Warrior:    { type: 'unit', tier: 1, name: 'Warrior',    cost: 1, atk: 2, def: 2 },
+  Archer:     { type: 'unit', tier: 1, name: 'Archer',     cost: 1, atk: 2, def: 1 },
+  Assassin:   { type: 'unit', tier: 1, name: 'Assassin',   cost: 2, atk: 3, def: 0 },
+  Apprentice: { type: 'unit', tier: 1, name: 'Apprentice', cost: 2, atk: 2, def: 1 },
 };
 
 // unitPool: array of def refs Townhall draws from (buildings add to this)
@@ -465,10 +465,10 @@ let defenders = new Set(); // card ids assigned to defend this turn
 
 // Spells
 const SPELL_DEFS = {
-  transmute: { name: 'Transmute', school: 'Reality',     cost: 4, targeted: false, desc: '+1 gold' },
-  meteor:    { name: 'Meteor',    school: 'Destruction',  cost: 4, targeted: true,  desc: 'Any hex: fire + −5 DEF' },
-  vision:    { name: 'Vision',    school: 'Astral',       cost: 2, targeted: true,  desc: 'Reveal area' },
-  analyze:   { name: 'Analyze',   school: 'Astral',       cost: 1, targeted: true,  desc: 'Exact stack count' },
+  transmute: { type: 'spell', name: 'Transmute', school: 'Reality',     cost: 4, targeted: false, desc: '+1 gold' },
+  meteor:    { type: 'spell', name: 'Meteor',    school: 'Destruction',  cost: 4, targeted: true,  desc: 'Any hex: fire + −5 DEF' },
+  vision:    { type: 'spell', name: 'Vision',    school: 'Astral',       cost: 2, targeted: true,  desc: 'Reveal area' },
+  analyze:   { type: 'spell', name: 'Analyze',   school: 'Astral',       cost: 1, targeted: true,  desc: 'Exact stack count' },
 };
 let playerSpells = [];
 let activeSpell = null;
@@ -489,17 +489,33 @@ const ai = {
   attackCD: 4,
 };
 
-function getUnitStats(def) {
-  const up = trainingLevels;
-  return {
-    name: def.name,
-    atk: def.atk + (up[`${def.name}-atk`] || 0) + gloryUpgrades.atk,
-    def: def.def + (up[`${def.name}-def`] || 0) + gloryUpgrades.def,
-  };
+// Recompute F-ATK and F-DEF from components — call whenever any component changes
+function recompute(c) {
+  c.atk = c.baseAtk + c.tAtk + c.gAtk;
+  c.def = c.baseDef + c.tDef + c.gDef;
 }
 
 function makeCard(def) {
-  return { id: cardIdSeq++, dying: false, ...getUnitStats(def) };
+  const tAtk = trainingLevels[`${def.name}-atk`] || 0;
+  const tDef = trainingLevels[`${def.name}-def`] || 0;
+  const gAtk = gloryUpgrades.atk;
+  const gDef = gloryUpgrades.def;
+  const c = {
+    id: cardIdSeq++,
+    type: 'unit',
+    tier: def.tier,
+    name: def.name,
+    cost: def.cost,
+    // Stat components
+    baseAtk: def.atk, baseDef: def.def,  // base (unit definition)
+    tAtk, tDef,                           // T-ATK / T-DEF (Training Ground)
+    gAtk, gDef,                           // G-ATK / G-DEF (Glory Coins)
+    // Final stats (F-ATK, F-DEF) — what combat and display use
+    atk: 0, def: 0,
+    dying: false,
+  };
+  recompute(c);
+  return c;
 }
 
 function drawCards(n) {
@@ -512,32 +528,32 @@ function drawCards(n) {
 // ── Building definitions ───────────────────────────────────────────────────
 const BUILDING_DEFS = [
   {
-    id: 'barracks', name: 'Barracks', cost: 4,
+    type: 'building', id: 'barracks', name: 'Barracks', cost: 4,
     desc: 'Adds Warrior to Townhall pool.',
     onBuild: () => unitPool.push(UNIT_DEFS.Warrior),
   },
   {
-    id: 'archery', name: 'Archery Range', cost: 4,
+    type: 'building', id: 'archery', name: 'Archery Range', cost: 4,
     desc: 'Adds Archer to Townhall pool.',
     onBuild: () => unitPool.push(UNIT_DEFS.Archer),
   },
   {
-    id: 'thieves', name: 'Thieves Guild', cost: 4,
+    type: 'building', id: 'thieves', name: 'Thieves Guild', cost: 4,
     desc: 'Adds Assassin to Townhall pool.',
     onBuild: () => unitPool.push(UNIT_DEFS.Assassin),
   },
   {
-    id: 'marketplace', name: 'Marketplace', cost: 4,
+    type: 'building', id: 'marketplace', name: 'Marketplace', cost: 4,
     desc: '+2 gold income per turn.',
     onBuild: () => { goldIncome += 2; },
   },
   {
-    id: 'training', name: 'Training Ground', cost: 4,
+    type: 'building', id: 'training', name: 'Training Ground', cost: 4,
     desc: 'Upgrade unit stats permanently (gold cost scales with upgrades).',
     onBuild: () => {},
   },
   {
-    id: 'school', name: 'School', cost: 4,
+    type: 'building', id: 'school', name: 'School', cost: 4,
     desc: 'Adds Apprentice to pool. Unlocks Mana (+2/turn). Grants 3 random Tier 1 spells.',
     onBuild: () => {
       unitPool.push(UNIT_DEFS.Apprentice);
@@ -566,8 +582,9 @@ function trainUnit(unitName, stat) {
   if (gold < cost) return;
   gold -= cost;
   trainingLevels[lvlKey] = (trainingLevels[lvlKey] || 0) + 1;
-  // Apply retroactively to cards already in hand
-  hand.forEach(c => { if (c.name === unitName && !c.dying) c[stat]++; });
+  // Apply retroactively to matching cards in hand via the training component
+  const comp = stat === 'atk' ? 'tAtk' : 'tDef';
+  hand.forEach(c => { if (c.name === unitName && !c.dying) { c[comp]++; recompute(c); } });
   update();
   renderBuildPanel();
   renderHand();
@@ -596,8 +613,9 @@ function buyGloryUpgrade(stat) {
   if (gloryCoins < cost) return;
   gloryCoins -= cost;
   gloryUpgrades[stat]++;
-  // Apply retroactively to all living cards in hand
-  hand.forEach(c => { if (!c.dying) c[stat]++; });
+  // Apply retroactively via the glory component so breakdown stays accurate
+  const comp = stat === 'atk' ? 'gAtk' : 'gDef';
+  hand.forEach(c => { if (!c.dying) { c[comp]++; recompute(c); } });
   log(`Kingdom ${stat.toUpperCase()} +1! All units upgraded. (Glory: ${gloryCoins})`);
   update();
   renderHand();
@@ -1201,7 +1219,10 @@ function renderHand() {
     else if (isCommitted) cls += ' committed';
     else if (isDefending) cls += ' defending';
     div.className = cls;
-    div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b><span>ATK ${c.atk}  DEF ${c.def}</span>`;
+    const bonus = (c.tAtk + c.gAtk > 0 ? ` ↑` : '') + (c.tDef + c.gDef > 0 ? ` ↑` : '');
+    div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b>` +
+      `<span style="color:#484f58;font-size:10px">T${c.tier} · ${c.cost}g</span>` +
+      `<span>ATK ${c.atk}  DEF ${c.def}${bonus}</span>`;
     if ((phase === 'capturing' || phase === 'war') && !c.dying) {
       div.style.cursor = 'pointer';
       div.onclick = () => {
