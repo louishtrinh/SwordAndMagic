@@ -247,6 +247,7 @@ canvas { flex: 1; display: block; width: 100%; }
   <span>Gold <b id="sGold">5</b></span>
   <span>Health <b id="sHealth">10</b></span>
   <span>Moves <b id="sMoves">3</b></span>
+  <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
   <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
   <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
   <button id="buildbtn" onclick="openBuild()">Build</button>
@@ -399,7 +400,7 @@ function computeReachable() {
     if (steps >= army.movesLeft) continue;
     for (const [dq, dr] of DIRS) {
       const nq = q + dq, nr = r + dr, k = tkey(nq, nr);
-      if (!tiles.has(k) || costs.has(k)) continue;
+      if (!tiles.has(k) || costs.has(k) || fireTiles.has(k)) continue;
       costs.set(k, steps + 1);
       queue.push({ q: nq, r: nr, steps: steps + 1 });
     }
@@ -431,15 +432,27 @@ let defenders = new Set(); // card ids assigned to defend this turn
 // Spells
 const SPELL_DEFS = {
   transmute: { name: 'Transmute', school: 'Reality',     cost: 4, targeted: false, desc: '+1 gold' },
-  meteor:    { name: 'Meteor',    school: 'Destruction',  cost: 4, targeted: true,  desc: 'POI: −5 DEF' },
+  meteor:    { name: 'Meteor',    school: 'Destruction',  cost: 4, targeted: true,  desc: 'Any hex: fire + −5 DEF' },
   vision:    { name: 'Vision',    school: 'Astral',       cost: 2, targeted: true,  desc: 'Reveal area' },
-  analyze:   { name: 'Analyze',   school: 'Astral',       cost: 1, targeted: true,  desc: 'Exact count' },
+  analyze:   { name: 'Analyze',   school: 'Astral',       cost: 1, targeted: true,  desc: 'Exact stack count' },
 };
 let playerSpells = [];
 let activeSpell = null;
 
-// AI
-const aiState = { gold: 5, attackCD: 3 };
+// Fire tiles: set by Meteor, block movement for the current turn, clear next turn
+const fireTiles = new Set();
+
+// Glory Coins
+let gloryCoins = 0;
+
+// AI — full economic state mirrors the player
+const ai = {
+  gold: 5, goldIncome: 5,
+  hand: [],      // [{ name, atk, def, dying }]
+  unitPool: [],
+  buildings: new Set(),
+  attackCD: 4,
+};
 
 function getUnitStats(def) {
   const up = trainingLevels;
@@ -639,18 +652,64 @@ function confirmCapture() {
 }
 
 // ── War Party ─────────────────────────────────────────────────────────────
+// ── AI economy ───────────────────────────────────────────────────────────────
+function aiDrawCards() {
+  if (!ai.unitPool.length) return;
+  for (let i = 0; i < 3; i++)
+    ai.hand.push({ ...ai.unitPool[rng(0, ai.unitPool.length - 1)], dying: false });
+}
+
+function aiDecide() {
+  // Build in priority order — same logic a human would follow
+  const buildPriority = [
+    { id: 'barracks',    onBuild: () => ai.unitPool.push(UNIT_DEFS.Warrior) },
+    { id: 'archery',     onBuild: () => ai.unitPool.push(UNIT_DEFS.Archer) },
+    { id: 'thieves',     onBuild: () => ai.unitPool.push(UNIT_DEFS.Assassin) },
+    { id: 'marketplace', onBuild: () => { ai.goldIncome += 2; } },
+  ];
+  for (const b of buildPriority) {
+    if (!ai.buildings.has(b.id) && ai.gold >= 4) {
+      ai.gold -= 4;
+      ai.buildings.add(b.id);
+      b.onBuild();
+      break; // one building per turn
+    }
+  }
+}
+
+function aiTakeTurn() {
+  ai.hand = ai.hand.filter(c => !c.dying);
+  ai.gold += ai.goldIncome;
+  aiDrawCards();
+  aiDecide();
+  ai.attackCD--;
+}
+
 function generateAIDefense() {
-  const count = Math.max(2, Math.min(2 + Math.floor(turn / 2), 6));
-  const types = [UNIT_DEFS.Warrior, UNIT_DEFS.Archer, UNIT_DEFS.Assassin];
-  return Array.from({ length: count }, () => ({ ...types[rng(0, types.length - 1)] }));
+  // Use AI's actual hand — pick units with highest DEF to defend
+  const active = ai.hand.filter(c => !c.dying);
+  if (!active.length) {
+    // AI has nothing built yet — bare minimum fallback
+    return [{ name: 'Warrior', atk: 2, def: 2 }];
+  }
+  active.sort((a, b) => b.def - a.def);
+  const n = Math.max(1, Math.ceil(active.length * 0.5));
+  const chosen = active.slice(0, n);
+  chosen.forEach(c => { c.dying = true; }); // defenders expire after the fight
+  return chosen.map(({ name, atk, def }) => ({ name, atk, def }));
 }
 
 function generateAIForce() {
-  const count = Math.max(2, Math.min(2 + Math.floor(turn / 3), 8));
-  const types = [UNIT_DEFS.Warrior, UNIT_DEFS.Archer, UNIT_DEFS.Assassin];
-  if (turn >= 4) types.push(UNIT_DEFS.Archer);
-  if (turn >= 6) types.push(UNIT_DEFS.Assassin);
-  return Array.from({ length: count }, () => ({ ...types[rng(0, types.length - 1)] }));
+  // Use AI's actual hand — pick units with highest ATK to attack
+  const active = ai.hand.filter(c => !c.dying);
+  if (!active.length) {
+    return [{ name: 'Warrior', atk: 2, def: 2 }, { name: 'Warrior', atk: 2, def: 2 }];
+  }
+  active.sort((a, b) => b.atk - a.atk);
+  const n = Math.max(2, Math.ceil(active.length * 0.6));
+  const chosen = active.slice(0, n);
+  chosen.forEach(c => { c.dying = true; }); // attackers are spent
+  return chosen.map(({ name, atk, def }) => ({ name, atk, def }));
 }
 
 function buildDefenseCombatLog(aiForce, playerDef) {
@@ -704,6 +763,7 @@ function buildDefenseCombatLog(aiForce, playerDef) {
     if (health - 1 <= 0) lines.push(tag('lose', '  ★ YOUR KINGDOM HAS FALLEN! ★'));
   } else {
     lines.push(tag('win', `  DEFENSE HOLDS! Enemy War Party repelled!`));
+    lines.push(tag('win', `  +1 Glory Coin awarded.`));
   }
   lines.push('');
   lines.push(tag('dim', '(Your defending units are spent and die.)'));
@@ -723,7 +783,8 @@ function resolveIncomingAttack() {
   document.getElementById('defendbtn').textContent = 'Defend';
   updateDefenseBar();
 
-  if (result.aiWins) health = Math.max(0, health - 1);
+  if (result.aiWins) { health = Math.max(0, health - 1); }
+  else { gloryCoins++; log(`Defense held! +1 Glory Coin (total: ${gloryCoins})`); }
 
   document.getElementById('combattitle').textContent = '⚔ ENEMY WAR PARTY';
   document.getElementById('combatlog').innerHTML = result.html;
@@ -799,14 +860,23 @@ function castSpell(id) {
 }
 
 function resolveSpellTarget(q, r) {
-  const t = tiles.get(tkey(q, r));
+  const k = tkey(q, r);
+  const t = tiles.get(k);
+  if (!t) { log('Invalid target.'); return; }
   const spell = SPELL_DEFS[activeSpell];
   if (activeSpell === 'meteor') {
-    if (!t || !t.poi) { log('Meteor: must target a POI hex.'); return; }
     mana -= spell.cost;
-    t.stack -= 5;
-    if (t.stack <= 0) { t.poi = false; t.stack = null; log(`Meteor obliterates the stack at (${q},${r})!`); }
-    else { log(`Meteor hits (${q},${r}): stack DEF reduced to ${t.stack}.`); }
+    t.revealed = true;        // explosion reveals the hex
+    fireTiles.add(k);         // tile burns this turn — blocks movement
+    if (t.poi) {
+      t.stack -= 5;
+      if (t.stack <= 0) { t.poi = false; t.stack = null; log(`Meteor obliterates the stack at (${q},${r})! Tile is on fire.`); }
+      else { log(`Meteor hits (${q},${r}): stack DEF reduced to ${t.stack}. Tile on fire.`); }
+    } else {
+      log(`Meteor scorches (${q},${r}) — on fire this turn! Army must detour.`);
+    }
+    // Recalculate movement in case army path is blocked
+    if (selected) reachable = computeReachable();
   } else if (activeSpell === 'vision') {
     mana -= spell.cost;
     for (let dq = -2; dq <= 2; dq++) {
@@ -874,6 +944,7 @@ function launchWarParty() {
 
   if (result.win) {
     enemyHealth = Math.max(0, enemyHealth - 1);
+    gloryCoins++;
   }
 
   update();
@@ -932,6 +1003,7 @@ function buildCombatLog(attackers, defenders) {
   lines.push('');
   if (win) {
     lines.push(tag('win', `  VICTORY! Enemy kingdom: ${enemyHealth} → ${Math.max(0, enemyHealth - 1)} health`));
+    lines.push(tag('win', `  +1 Glory Coin awarded.`));
     if (enemyHealth - 1 <= 0) lines.push(tag('win', '  ★ ENEMY KINGDOM DESTROYED! ★'));
   } else {
     lines.push(tag('lose', `  DEFEAT. Enemy defense held.`));
@@ -991,9 +1063,11 @@ function advanceTurn() {
   const drew = unitPool.length ? 3 : 0;
   drawCards(3);
 
-  // AI income
-  aiState.gold += 5;
-  aiState.attackCD--;
+  // Extinguish fires from last turn
+  fireTiles.clear();
+
+  // AI takes its turn (economy + decisions)
+  aiTakeTurn();
 
   phase = 'playing';
   const btn = document.getElementById('endbtn');
@@ -1007,8 +1081,8 @@ function advanceTurn() {
   render();
 
   // AI attacks after a short delay so player sees the new turn state first
-  if (aiState.attackCD <= 0) {
-    aiState.attackCD = 3 + rng(0, 2);
+  if (ai.attackCD <= 0) {
+    ai.attackCD = 3 + rng(0, 2);
     setTimeout(resolveIncomingAttack, 900);
   }
 }
@@ -1021,6 +1095,7 @@ function update() {
   document.getElementById('sGold').textContent = gold;
   document.getElementById('sHealth').textContent = health;
   document.getElementById('sMoves').textContent = army.movesLeft;
+  document.getElementById('sGlory').textContent = gloryCoins;
   if (manaIncome > 0) {
     document.getElementById('manaDisplay').style.display = '';
     document.getElementById('sMana').textContent = mana;
@@ -1103,25 +1178,57 @@ function render() {
 
     hexPath(cx, cy);
 
+    const isFire = fireTiles.has(k);
+
+    // Spell targeting highlight for unrevealed tiles (Meteor/Vision can target anywhere)
+    const spellHighlight =
+      phase === 'spell' && (
+        (activeSpell === 'meteor') ||
+        (activeSpell === 'vision') ||
+        (activeSpell === 'analyze' && t.revealed && t.poi)
+      );
+
     if (!t.revealed) {
-      ctx.fillStyle = '#0d1117';
+      ctx.fillStyle = isFire ? '#3a1000' : '#0d1117';
       ctx.fill();
-      ctx.strokeStyle = '#1c2128';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = spellHighlight
+        ? (activeSpell === 'meteor' ? '#ff6020' : '#8060d0')
+        : (isFire ? '#803010' : '#1c2128');
+      ctx.lineWidth = spellHighlight ? 2 : 1;
       ctx.stroke();
+      if (isFire) {
+        ctx.fillStyle = '#ff4000';
+        ctx.font = `${Math.floor(SIZE * 0.4)}px monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🔥', cx, cy);
+      }
       continue;
     }
 
     let fill = '#12202e';
     if (t.poi)   fill = '#132613';
     if (isReach) fill = '#0e2e30';
+    if (isFire)  fill = '#2a0e00';
     ctx.fillStyle = fill;
     ctx.fill();
-    ctx.strokeStyle = isReach ? '#38a8a8' : '#263040';
-    ctx.lineWidth = isReach ? 2 : 1;
+
+    let strokeColor = isReach ? '#38a8a8' : '#263040';
+    let strokeWidth = isReach ? 2 : 1;
+    if (spellHighlight) {
+      strokeColor = activeSpell === 'meteor' ? '#ff6020' : activeSpell === 'vision' ? '#8060d0' : '#40c0c0';
+      strokeWidth = 2;
+    }
+    if (isFire) { strokeColor = '#d04000'; strokeWidth = 2; }
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
     ctx.stroke();
 
-    if (t.poi) {
+    if (isFire) {
+      ctx.fillStyle = '#ff4000';
+      ctx.font = `${Math.floor(SIZE * 0.4)}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🔥', cx, cy);
+    } else if (t.poi) {
       ctx.fillStyle = '#f0c040';
       ctx.font = `bold ${Math.floor(SIZE * 0.36)}px monospace`;
       ctx.textAlign = 'center';
