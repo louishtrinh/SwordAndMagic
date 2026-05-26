@@ -445,10 +445,10 @@ function computeReachable() {
 
 // ── Units & Buildings ─────────────────────────────────────────────────────
 const UNIT_DEFS = {
-  Warrior:    { type: 'unit', tier: 1, name: 'Warrior',    cost: 1, atk: 2, def: 2 },
-  Archer:     { type: 'unit', tier: 1, name: 'Archer',     cost: 1, atk: 2, def: 1 },
-  Assassin:   { type: 'unit', tier: 1, name: 'Assassin',   cost: 2, atk: 3, def: 0 },
-  Apprentice: { type: 'unit', tier: 1, name: 'Apprentice', cost: 2, atk: 2, def: 1 },
+  Warrior:    { type: 'unit', tier: 1, name: 'Warrior',    cost: 1, atk: 2, def: 2, tags: ['Human', 'Melee', 'Physical'] },
+  Archer:     { type: 'unit', tier: 1, name: 'Archer',     cost: 1, atk: 2, def: 1, tags: ['Human', 'Range', 'Physical', 'Projectile'] },
+  Assassin:   { type: 'unit', tier: 1, name: 'Assassin',   cost: 2, atk: 3, def: 0, tags: ['Human', 'Melee', 'Physical', 'Stealth'] },
+  Apprentice: { type: 'unit', tier: 1, name: 'Apprentice', cost: 2, atk: 2, def: 1, tags: ['Human', 'Range', 'Magic', 'Projectile'] },
 };
 
 // unitPool: array of def refs Townhall draws from (buildings add to this)
@@ -506,6 +506,7 @@ function makeCard(def) {
     tier: def.tier,
     name: def.name,
     cost: def.cost,
+    tags: [...def.tags],                  // copy so per-card mutations don't bleed into def
     // Stat components
     baseAtk: def.atk, baseDef: def.def,  // base (unit definition)
     tAtk, tDef,                           // T-ATK / T-DEF (Training Ground)
@@ -1219,10 +1220,11 @@ function renderHand() {
     else if (isCommitted) cls += ' committed';
     else if (isDefending) cls += ' defending';
     div.className = cls;
-    const bonus = (c.tAtk + c.gAtk > 0 ? ` ↑` : '') + (c.tDef + c.gDef > 0 ? ` ↑` : '');
+    const bonus = (c.tAtk + c.gAtk > 0 ? ' ↑' : '') + (c.tDef + c.gDef > 0 ? ' ↑' : '');
     div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b>` +
       `<span style="color:#484f58;font-size:10px">T${c.tier} · ${c.cost}g</span>` +
-      `<span>ATK ${c.atk}  DEF ${c.def}${bonus}</span>`;
+      `<span>ATK ${c.atk}  DEF ${c.def}${bonus}</span>` +
+      `<span style="color:#3a4a5a;font-size:10px">${c.tags.join(' · ')}</span>`;
     if ((phase === 'capturing' || phase === 'war') && !c.dying) {
       div.style.cursor = 'pointer';
       div.onclick = () => {
