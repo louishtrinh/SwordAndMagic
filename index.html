@@ -239,6 +239,31 @@ canvas { flex: 1; display: block; width: 100%; }
 #gameoverpanel h2 { font-size: 20px; margin-bottom: 10px; letter-spacing: 2px; }
 #gameoverpanel p { font-size: 13px; color: #8b949e; margin-bottom: 18px; }
 #gameoverpanel button { background: #238636; color: #fff; border: none; padding: 6px 24px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#glorybtn { background: #21262d; color: #f0c040; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#glorybtn:hover { background: #2a2210; }
+#gloryoverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+#gloryoverlay.hidden { display: none; }
+#glorypanel {
+  background: #161b22;
+  border: 1px solid #5a4a00;
+  border-radius: 6px;
+  padding: 18px 24px;
+  width: min(340px, 90vw);
+}
+#glorypanel h2 { font-size: 13px; color: #f0c040; margin-bottom: 4px; letter-spacing: 1px; }
+#glorypanel .subtitle { font-size: 11px; color: #8b949e; margin-bottom: 14px; }
+.glory-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; }
+.glory-row span { flex: 1; color: #c8c8c8; }
+.glory-row small { color: #8b949e; font-size: 11px; }
+.gbtn { background: #2a2000; color: #f0c040; border: 1px solid #7a5a00; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
+.gbtn:disabled { background: #1a1a1a; color: #484f58; cursor: default; border-color: #30363d; }
+.gbtn:hover:not(:disabled) { background: #3a3000; }
+#closeglory { margin-top: 8px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -250,6 +275,7 @@ canvas { flex: 1; display: block; width: 100%; }
   <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
   <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
   <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
+  <button id="glorybtn" onclick="openGlory()">Glory Shop</button>
   <button id="buildbtn" onclick="openBuild()">Build</button>
   <button id="endbtn" onclick="endTurn()">End Turn</button>
 </div>
@@ -258,6 +284,14 @@ canvas { flex: 1; display: block; width: 100%; }
     <h2>Buildings — 4 gold each</h2>
     <div id="buildlist"></div>
     <button id="closebuild" onclick="closeBuild()">Close</button>
+  </div>
+</div>
+<div id="gloryoverlay" class="hidden">
+  <div id="glorypanel">
+    <h2>✦ Glory Coin Shop</h2>
+    <div class="subtitle">City-wide upgrades — all units benefit immediately</div>
+    <div id="glorylist"></div>
+    <button id="closeglory" onclick="closeGlory()">Close</button>
   </div>
 </div>
 <canvas id="c"></canvas>
@@ -444,6 +478,7 @@ const fireTiles = new Set();
 
 // Glory Coins
 let gloryCoins = 0;
+const gloryUpgrades = { atk: 0, def: 0 }; // purchase counts, used for cost scaling + bonus
 
 // AI — full economic state mirrors the player
 const ai = {
@@ -458,8 +493,8 @@ function getUnitStats(def) {
   const up = trainingLevels;
   return {
     name: def.name,
-    atk: def.atk + (up[`${def.name}-atk`] || 0),
-    def: def.def + (up[`${def.name}-def`] || 0),
+    atk: def.atk + (up[`${def.name}-atk`] || 0) + gloryUpgrades.atk,
+    def: def.def + (up[`${def.name}-def`] || 0) + gloryUpgrades.def,
   };
 }
 
@@ -545,6 +580,46 @@ function openBuild() {
 
 function closeBuild() {
   document.getElementById('buildoverlay').classList.add('hidden');
+}
+
+function openGlory() {
+  renderGloryPanel();
+  document.getElementById('gloryoverlay').classList.remove('hidden');
+}
+
+function closeGlory() {
+  document.getElementById('gloryoverlay').classList.add('hidden');
+}
+
+function buyGloryUpgrade(stat) {
+  const cost = 1 + gloryUpgrades[stat];
+  if (gloryCoins < cost) return;
+  gloryCoins -= cost;
+  gloryUpgrades[stat]++;
+  // Apply retroactively to all living cards in hand
+  hand.forEach(c => { if (!c.dying) c[stat]++; });
+  log(`Kingdom ${stat.toUpperCase()} +1! All units upgraded. (Glory: ${gloryCoins})`);
+  update();
+  renderHand();
+  renderGloryPanel();
+}
+
+function renderGloryPanel() {
+  const list = document.getElementById('glorylist');
+  const rows = [
+    { stat: 'atk', label: 'ATK +1 (all units)', icon: '⚔' },
+    { stat: 'def', label: 'DEF +1 (all units)', icon: '🛡' },
+  ];
+  list.innerHTML = rows.map(({ stat, icon, label }) => {
+    const purchased = gloryUpgrades[stat];
+    const cost = 1 + purchased;
+    const canAfford = gloryCoins >= cost;
+    return `<div class="glory-row">
+      <span>${icon} ${label} <small>(lv ${purchased})</small></span>
+      <button class="gbtn" onclick="buyGloryUpgrade('${stat}')" ${!canAfford ? 'disabled' : ''}>${cost} ✦</button>
+    </div>`;
+  }).join('') +
+  `<div style="font-size:11px;color:#8b949e;margin-top:8px">Available: <b style="color:#f0c040">${gloryCoins} ✦</b></div>`;
 }
 
 function renderBuildPanel() {
