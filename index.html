@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Sword & Magic</title>
+<title>Sword & Glory</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -265,6 +265,8 @@ canvas { flex: 1; display: block; width: 100%; }
 .gbtn:hover:not(:disabled) { background: #3a3000; }
 #closeglory { margin-top: 8px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body>
 <div id="topbar">
@@ -293,6 +295,10 @@ canvas { flex: 1; display: block; width: 100%; }
     <div id="glorylist"></div>
     <button id="closeglory" onclick="closeGlory()">Close</button>
   </div>
+</div>
+<div id="sharebar" style="display:none;background:#0d2010;border-bottom:1px solid #204030;padding:4px 14px;font-size:12px;color:#70c090">
+  Share this URL with your opponent: <span id="shareurl" style="color:#90e0b0;user-select:all"></span>
+  <button onclick="navigator.clipboard.writeText(document.getElementById('shareurl').textContent)" style="margin-left:10px;background:#1a4020;color:#90e0b0;border:1px solid #305040;padding:2px 8px;cursor:pointer;font-family:monospace;font-size:11px">Copy</button>
 </div>
 <canvas id="c"></canvas>
 <div id="bottombar">
@@ -1024,26 +1030,26 @@ function launchWarParty() {
   if (!attackers.length || gold < 1) return;
   gold -= 1;
 
-  const defenders = generateAIDefense();
-  const result = buildCombatLog(attackers, defenders);
-
   document.getElementById('warbar').classList.remove('active');
   phase = 'playing';
   committed = new Set();
 
-  // Show result modal
+  if (!LOCAL_MODE) {
+    // Firebase mode: store attack, resolve against real opponent defense at turn end
+    pendingAttack = { attackers: attackers.map(({ name, atk, def }) => ({ name, atk, def })) };
+    log(`War party dispatched (${attackers.length} units). Result when both players end turn.`);
+    update(); renderHand(); render();
+    return;
+  }
+
+  // LOCAL_MODE: resolve immediately against AI defense
+  const aiDef = generateAIDefense();
+  const result = buildCombatLog(attackers, aiDef);
   document.getElementById('combattitle').textContent = '⚔ WAR PARTY COMBAT';
   document.getElementById('combatlog').innerHTML = result.html;
   document.getElementById('combatoverlay').classList.remove('hidden');
-
-  if (result.win) {
-    enemyHealth = Math.max(0, enemyHealth - 1);
-    gloryCoins++;
-  }
-
-  update();
-  renderHand();
-  render();
+  if (result.win) { enemyHealth = Math.max(0, enemyHealth - 1); gloryCoins++; }
+  update(); renderHand(); render();
 }
 
 function buildCombatLog(attackers, defenders) {
@@ -1110,6 +1116,7 @@ function buildCombatLog(attackers, defenders) {
 
 function closeCombat() {
   document.getElementById('combatoverlay').classList.add('hidden');
+  if (!LOCAL_MODE && combatQueue.length) { showNextCombat(); return; }
   if (enemyHealth <= 0) showGameOver(true);
   else if (health <= 0) showGameOver(false);
 }
@@ -1136,15 +1143,17 @@ function endTurn() {
     updateDefenseBar();
     renderHand();
   }
-  phase = 'waiting';
   selected = false;
   reachable = new Map();
+
+  if (!LOCAL_MODE) { endTurnFirebase(); return; }
+
+  phase = 'waiting';
   const btn = document.getElementById('endbtn');
   btn.disabled = true;
   btn.textContent = 'Waiting for opponent...';
   log('You ended your turn. Waiting for opponent...');
   render();
-  // Simulate opponent ending their turn (1.5s delay)
   setTimeout(advanceTurn, 1500);
 }
 
@@ -1160,8 +1169,8 @@ function advanceTurn() {
   // Extinguish fires from last turn
   fireTiles.clear();
 
-  // AI takes its turn (economy + decisions)
-  aiTakeTurn();
+  // AI only runs in local mode
+  if (LOCAL_MODE) aiTakeTurn();
 
   phase = 'playing';
   const btn = document.getElementById('endbtn');
@@ -1174,8 +1183,8 @@ function advanceTurn() {
   renderSpellBar();
   render();
 
-  // AI attacks after a short delay so player sees the new turn state first
-  if (ai.attackCD <= 0) {
+  // AI attacks after a short delay (local mode only)
+  if (LOCAL_MODE && ai.attackCD <= 0) {
     ai.attackCD = 3 + rng(0, 2);
     setTimeout(resolveIncomingAttack, 900);
   }
@@ -1390,7 +1399,8 @@ function render() {
 
   // Enemy castle (always visible — road reveals it at start)
   {
-    const { x, y } = h2p(-5, 0);
+    const ec = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
+    const { x, y } = h2p(ec.q, ec.r);
     const cx = ox + x, cy = oy + y;
     ctx.beginPath();
     ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
@@ -1433,7 +1443,8 @@ canvas.addEventListener('click', e => {
   // Toggle army selection
   if (q === army.q && r === army.r) {
     // If on enemy city, re-open war UI
-    if (q === -5 && r === 0 && enemyHealth > 0) { enterWar(); return; }
+    const ec = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
+    if (q === ec.q && r === ec.r && enemyHealth > 0) { enterWar(); return; }
     // If standing on an uncaptured POI, re-open capture instead of just selecting
     const here = tiles.get(k);
     if (here && here.poi && here.stack !== null) {
@@ -1457,7 +1468,8 @@ canvas.addEventListener('click', e => {
     reachable = computeReachable();
     if (army.movesLeft === 0) { selected = false; reachable = new Map(); }
     const t = tiles.get(k);
-    if (q === -5 && r === 0) {
+    const ec2 = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
+    if (q === ec2.q && r === ec2.r) {
       update(); render();
       if (enemyHealth > 0) enterWar();
       else log('The enemy kingdom has already fallen.');
@@ -1481,17 +1493,142 @@ canvas.addEventListener('click', e => {
     : `Plains at (${q},${r}).`);
 });
 
+// ── Multiplayer ───────────────────────────────────────────────────────────
+const LOCAL_MODE = true; // set false to use Firebase
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyBX7k7uLH8wxlRdJKv7B4H7Ul_IEkYLf1w',
+  authDomain: 'sword-and-glory-27f26.firebaseapp.com',
+  databaseURL: 'https://sword-and-glory-27f26-default-rtdb.firebaseio.com',
+  projectId: 'sword-and-glory-27f26',
+  storageBucket: 'sword-and-glory-27f26.firebasestorage.app',
+  messagingSenderId: '760973319572',
+  appId: '1:760973319572:web:42e2e92ea95c47c111c381',
+};
+
+let db = null;
+let gameId = null;
+let myRole = null;        // 'p1' | 'p2'
+let pendingAttack = null; // war party declared this turn, resolved at turn end
+let combatQueue = [];     // modals to show sequentially at turn resolution
+let turnRef = null;       // active Firebase listener
+
+// Hex coords for each player's own castle and enemy castle
+const MY_CASTLE    = () => myRole === 'p2' ? { q: -5, r: 0 } : { q:  5, r: 0 };
+const ENEMY_CASTLE = () => myRole === 'p2' ? { q:  5, r: 0 } : { q: -5, r: 0 };
+
+function initMultiplayer() {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+
+  const params = new URLSearchParams(window.location.search);
+  gameId = params.get('game');
+
+  if (gameId) {
+    // Joining as P2 — start at west arm
+    myRole = 'p2';
+    army = { q: -5, r: 0, movesLeft: 3 };
+    revealAround(army.q, army.r);
+    render();
+    log('Joined as Player 2. Waiting for Player 1 to start...');
+  } else {
+    // Creating as P1 — start at east arm (default)
+    myRole = 'p1';
+    gameId = Math.random().toString(36).slice(2, 8).toUpperCase();
+    window.history.replaceState(null, '', `?game=${gameId}`);
+    db.ref(`games/${gameId}/meta`).set({ created: Date.now() });
+    const url = `${location.origin}${location.pathname}?game=${gameId}`;
+    document.getElementById('sharebar').style.display = '';
+    document.getElementById('shareurl').textContent = url;
+    log('Game created! Share the URL above with your opponent.');
+  }
+
+  listenForOpponent();
+}
+
+function listenForOpponent() {
+  if (turnRef) turnRef.off();
+  turnRef = db.ref(`games/${gameId}/turns/${turn}`);
+  turnRef.on('value', snap => {
+    const data = snap.val();
+    if (!data?.p1?.ended || !data?.p2?.ended) return;
+    turnRef.off();
+    const myData = data[myRole];
+    const opData = data[myRole === 'p1' ? 'p2' : 'p1'];
+    resolveMultiplayerTurn(myData, opData);
+  });
+}
+
+function endTurnFirebase() {
+  const myDefenders = hand
+    .filter(c => defenders.has(c.id) && !c.dying)
+    .map(({ name, atk, def }) => ({ name, atk, def }));
+
+  db.ref(`games/${gameId}/turns/${turn}/${myRole}`).set({
+    ended: true,
+    defenders: myDefenders,
+    attack: pendingAttack,
+  });
+  pendingAttack = null;
+
+  phase = 'waiting';
+  document.getElementById('endbtn').disabled = true;
+  document.getElementById('endbtn').textContent = 'Waiting for opponent...';
+  log('Waiting for opponent...');
+  render();
+}
+
+function resolveMultiplayerTurn(myData, opData) {
+  combatQueue = [];
+
+  // Mark my defending cards as dying — they were spent this turn
+  hand.forEach(c => { if (defenders.has(c.id)) c.dying = true; });
+  defenders = new Set();
+
+  // Opponent attacked me — resolve against my defenders
+  if (opData.attack) {
+    const result = buildDefenseCombatLog(opData.attack.attackers, myData.defenders || []);
+    if (result.aiWins) health = Math.max(0, health - 1);
+    else gloryCoins++;
+    combatQueue.push({ title: '⚔ ENEMY WAR PARTY', html: result.html });
+  }
+
+  // I attacked opponent — resolve against their defenders
+  if (myData.attack) {
+    const result = buildCombatLog(myData.attack.attackers, opData.defenders || []);
+    if (result.win) { enemyHealth = Math.max(0, enemyHealth - 1); gloryCoins++; }
+    combatQueue.push({ title: '⚔ WAR PARTY RESULT', html: result.html });
+  }
+
+  showNextCombat();
+}
+
+function showNextCombat() {
+  if (!combatQueue.length) {
+    advanceTurn();
+    listenForOpponent();
+    return;
+  }
+  const { title, html } = combatQueue.shift();
+  document.getElementById('combattitle').textContent = title;
+  document.getElementById('combatlog').innerHTML = html;
+  document.getElementById('combatoverlay').classList.remove('hidden');
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => { resize(); render(); });
 resize();
 buildMap();
 revealAround(army.q, army.r);
-// Starting garrison: 3 Warriors (free gift; Townhall pool starts empty until buildings are built)
 hand = [makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior)];
 render();
 update();
 renderHand();
-log('Build Barracks to start drawing units each turn. Starting garrison: 3 Warriors.');
+if (!LOCAL_MODE) {
+  initMultiplayer();
+} else {
+  log('Build Barracks to start drawing units each turn. Starting garrison: 3 Warriors.');
+}
 </script>
 </body>
 </html>
