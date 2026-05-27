@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sword & Glory</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117;
+  color: #e6e6e6;
+  font-family: monospace;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 6px 14px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+#topbar b { color: #f0c040; }
+#endbtn {
+  margin-left: auto;
+  background: #238636;
+  color: #fff;
+  border: none;
+  padding: 5px 18px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 13px;
+}
+#endbtn:hover:not(:disabled) { background: #2ea043; }
+#endbtn:disabled { background: #2a3a2a; color: #6e9c6e; cursor: default; }
+canvas { flex: 1; display: block; width: 100%; }
+#bottombar {
+  background: #161b22;
+  border-top: 1px solid #30363d;
+  flex-shrink: 0;
+}
+#logline {
+  font-size: 11px;
+  color: #8b949e;
+  padding: 3px 12px;
+  border-bottom: 1px solid #21262d;
+}
+#hand {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  min-height: 74px;
+  overflow-x: auto;
+  align-items: flex-start;
+}
+.card {
+  border: 1px solid #30363d;
+  padding: 5px 8px;
+  background: #21262d;
+  min-width: 68px;
+  font-size: 11px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.card b { color: #79c0ff; display: block; margin-bottom: 3px; }
+.card span { color: #8b949e; }
+.card.committed { border-color: #f0c040; background: #2a2810; cursor: pointer; }
+.card.dying { opacity: 0.45; border-color: #803030; cursor: default; }
+.card.dying b { color: #a07070; }
+#capturebar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #1a1200;
+  border-bottom: 1px solid #4a3800;
+  font-size: 12px;
+  color: #c8a040;
+}
+#capturebar.active { display: flex; }
+#capturebtn {
+  background: #7a4000;
+  color: #ffd080;
+  border: 1px solid #a06000;
+  padding: 3px 12px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+}
+#capturebtn:disabled { background: #2a2010; color: #604020; cursor: default; border-color: #3a2800; }
+#cancelbtn {
+  background: transparent;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+}
+/* ── War Party bar ── */
+#warbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #1a0808;
+  border-bottom: 1px solid #5a1010;
+  font-size: 12px;
+  color: #e08080;
+}
+#warbar.active { display: flex; }
+#warbtn {
+  background: #7a1010;
+  color: #ffb0b0;
+  border: 1px solid #a03030;
+  padding: 3px 12px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+}
+#warbtn:disabled { background: #2a1010; color: #604040; cursor: default; border-color: #3a1818; }
+/* ── Combat result overlay ── */
+#combatoverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+}
+#combatoverlay.hidden { display: none; }
+#combatpanel {
+  background: #161b22;
+  border: 1px solid #5a1010;
+  border-radius: 6px;
+  padding: 18px 22px;
+  width: min(480px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#combatpanel h2 { font-size: 13px; color: #e08080; margin-bottom: 12px; letter-spacing: 1px; }
+#combatlog { font-size: 12px; line-height: 1.7; color: #c8c8c8; white-space: pre-wrap; }
+#combatlog .win  { color: #60d060; font-weight: bold; }
+#combatlog .lose { color: #e05050; font-weight: bold; }
+#combatlog .dim  { color: #6a7a6a; }
+#combatlog .hit  { color: #f0c040; }
+#closecombat {
+  margin-top: 14px;
+  background: #238636; color: #fff;
+  border: none; padding: 5px 18px;
+  cursor: pointer; font-family: monospace; font-size: 13px;
+}
+/* ── Build overlay ── */
+#buildoverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+#buildoverlay.hidden { display: none; }
+#buildpanel {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 16px;
+  width: min(720px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+}
+#buildpanel h2 { font-size: 13px; color: #c8c8c8; margin-bottom: 10px; }
+#buildlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.bcard { border: 1px solid #30363d; padding: 8px 10px; background: #21262d; border-radius: 4px; }
+.bcard.built { opacity: 0.55; }
+.bcard h3 { font-size: 12px; color: #79c0ff; margin-bottom: 3px; }
+.bcard p { font-size: 11px; color: #8b949e; margin-bottom: 6px; line-height: 1.4; }
+.bcard .cost { font-size: 11px; color: #f0c040; margin-bottom: 5px; }
+.bbtn { background: #238636; color: #fff; border: none; padding: 3px 10px; cursor: pointer; font-family: monospace; font-size: 11px; }
+.bbtn:disabled { background: #21262d; color: #484f58; cursor: default; }
+.upgrades { margin-top: 8px; border-top: 1px solid #30363d; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.urow { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8b949e; }
+.urow span { flex: 1; }
+.ubtn { background: #1a3a1a; color: #70c070; border: 1px solid #2a5a2a; padding: 1px 7px; cursor: pointer; font-family: monospace; font-size: 10px; }
+.ubtn:disabled { background: #1a1a1a; color: #484f58; cursor: default; border-color: #30363d; }
+#closebuild { margin-top: 12px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
+#buildbtn { background: #21262d; color: #c8c8c8; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#buildbtn:hover { background: #30363d; }
+#defendbtn { background: #21262d; color: #7090c0; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#defendbtn:hover { background: #161d28; }
+#defendbtn.active { background: #1a3a5a; border-color: #4070c0; color: #90c0f0; }
+.card.defending { border-color: #4070c0; background: #101830; cursor: pointer; }
+#defensebar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #080e1a;
+  border-bottom: 1px solid #204060;
+  font-size: 12px;
+  color: #7090c0;
+}
+#defensebar.active { display: flex; }
+#spellbar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: #0a0a1a;
+  border-bottom: 1px solid #302060;
+  flex-wrap: wrap;
+}
+.spellbtn {
+  background: #1a1040;
+  color: #c0a0ff;
+  border: 1px solid #5040a0;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 11px;
+}
+.spellbtn:disabled { background: #0d0d20; color: #484f58; cursor: default; border-color: #2a2040; }
+.spellbtn:hover:not(:disabled) { background: #251558; }
+.spellbtn.active { border-color: #a080ff; background: #2a1870; }
+#gameoveroverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+}
+#gameoveroverlay.hidden { display: none; }
+#gameoverpanel {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 28px 40px;
+  text-align: center;
+}
+#gameoverpanel h2 { font-size: 20px; margin-bottom: 10px; letter-spacing: 2px; }
+#gameoverpanel p { font-size: 13px; color: #8b949e; margin-bottom: 18px; }
+#gameoverpanel button { background: #238636; color: #fff; border: none; padding: 6px 24px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#glorybtn { background: #21262d; color: #f0c040; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#glorybtn:hover { background: #2a2210; }
+#gloryoverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+#gloryoverlay.hidden { display: none; }
+#glorypanel {
+  background: #161b22;
+  border: 1px solid #5a4a00;
+  border-radius: 6px;
+  padding: 18px 24px;
+  width: min(340px, 90vw);
+}
+#glorypanel h2 { font-size: 13px; color: #f0c040; margin-bottom: 4px; letter-spacing: 1px; }
+#glorypanel .subtitle { font-size: 11px; color: #8b949e; margin-bottom: 14px; }
+.glory-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; }
+.glory-row span { flex: 1; color: #c8c8c8; }
+.glory-row small { color: #8b949e; font-size: 11px; }
+.gbtn { background: #2a2000; color: #f0c040; border: 1px solid #7a5a00; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
+.gbtn:disabled { background: #1a1a1a; color: #484f58; cursor: default; border-color: #30363d; }
+.gbtn:hover:not(:disabled) { background: #3a3000; }
+#closeglory { margin-top: 8px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body>
+<div id="topbar">
+  <span>Turn <b id="sTurn">1</b></span>
+  <span>Gold <b id="sGold">5</b></span>
+  <span>Health <b id="sHealth">10</b></span>
+  <span>Moves <b id="sMoves">3</b></span>
+  <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
+  <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
+  <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
+  <button id="glorybtn" onclick="openGlory()">Glory Shop</button>
+  <button id="buildbtn" onclick="openBuild()">Build</button>
+  <button id="endbtn" onclick="endTurn()">End Turn</button>
+</div>
+<div id="buildoverlay" class="hidden">
+  <div id="buildpanel">
+    <h2>Buildings — 4 gold each</h2>
+    <div id="buildlist"></div>
+    <button id="closebuild" onclick="closeBuild()">Close</button>
+  </div>
+</div>
+<div id="gloryoverlay" class="hidden">
+  <div id="glorypanel">
+    <h2>✦ Glory Coin Shop</h2>
+    <div class="subtitle">City-wide upgrades — all units benefit immediately</div>
+    <div id="glorylist"></div>
+    <button id="closeglory" onclick="closeGlory()">Close</button>
+  </div>
+</div>
+<div id="sharebar" style="display:none;background:#0d2010;border-bottom:1px solid #204030;padding:4px 14px;font-size:12px;color:#70c090">
+  Share this URL with your opponent: <span id="shareurl" style="color:#90e0b0;user-select:all"></span>
+  <button onclick="navigator.clipboard.writeText(document.getElementById('shareurl').textContent)" style="margin-left:10px;background:#1a4020;color:#90e0b0;border:1px solid #305040;padding:2px 8px;cursor:pointer;font-family:monospace;font-size:11px">Copy</button>
+</div>
+<canvas id="c"></canvas>
+<div id="bottombar">
+  <div id="logline">Click your army (P) to select it, then click a highlighted tile to move.</div>
+  <div id="capturebar">
+    <span id="captureinfo"></span>
+    <button id="capturebtn" onclick="confirmCapture()" disabled>Capture!</button>
+    <button id="cancelbtn" onclick="cancelCapture()">Cancel</button>
+  </div>
+  <div id="warbar">
+    <span id="warinfo"></span>
+    <button id="warbtn" onclick="launchWarParty()" disabled>Attack (1g)</button>
+    <button class="cancelbtn" onclick="cancelWar()">Cancel</button>
+  </div>
+  <div id="defensebar">
+    <span id="defenseinfo"></span>
+    <button onclick="toggleDefenseMode()" style="background:transparent;color:#8b949e;border:1px solid #30363d;padding:3px 10px;cursor:pointer;font-family:monospace;font-size:12px;">Done</button>
+  </div>
+  <div id="spellbar"></div>
+  <div id="hand"></div>
+</div>
+<div id="combatoverlay" class="hidden">
+  <div id="combatpanel">
+    <h2 id="combattitle">⚔ WAR PARTY COMBAT</h2>
+    <div id="combatlog"></div>
+    <button id="closecombat" onclick="closeCombat()">OK</button>
+  </div>
+</div>
+<div id="gameoveroverlay" class="hidden">
+  <div id="gameoverpanel">
+    <h2 id="gameovermsg"></h2>
+    <p id="gameoverdesc"></p>
+    <button onclick="location.reload()">Play Again</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const SQ3 = Math.sqrt(3);
+const SIZE = 40;
+
+// ── Hex math (pointy-top axial) ───────────────────────────────────────────
+
+function h2p(q, r) {
+  return { x: SIZE * (SQ3 * q + SQ3 / 2 * r), y: SIZE * 1.5 * r };
+}
+
+function p2h(x, y) {
+  const q = (SQ3 / 3 * x - y / 3) / SIZE;
+  const r = (2 / 3 * y) / SIZE;
+  let rq = Math.round(q), rr = Math.round(r), rs = Math.round(-q - r);
+  const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs + q + r);
+  if (dq > dr && dq > ds) rq = -rr - rs;
+  else if (dr > ds) rr = -rq - rs;
+  return { q: rq, r: rr };
+}
+
+const DIRS = [[1,0],[-1,0],[1,-1],[-1,1],[0,-1],[0,1]];
+
+// ── Map ───────────────────────────────────────────────────────────────────
+// tile: { q, r, poi, stack, revealed, road }
+const tiles = new Map();
+const tkey = (q, r) => `${q},${r}`;
+
+// Road: the revealed corridor connecting both cities
+const ROAD_TILES = new Set(['5,0','4,0','3,0','2,0','1,0','0,0','-1,0','-2,0','-3,0','-4,0','-5,0']);
+
+function rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+
+function buildMap() {
+  // Center cluster: radius 2
+  for (let q = -2; q <= 2; q++) {
+    for (let r = Math.max(-2, -q - 2); r <= Math.min(2, -q + 2); r++) {
+      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false });
+    }
+  }
+  // 6 arms: 3 hexes each in each primary direction
+  for (const [dq, dr] of DIRS) {
+    for (let i = 3; i <= 5; i++) {
+      const q = dq * i, r = dr * i;
+      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false });
+    }
+  }
+  // POIs on neutral arms and center; player (E arm) and AI (W arm) have no POIs
+  [
+    [0,  0,  rng(12, 18)],  // center — most contested
+    [5,  -5, rng(8,  14)],  // NE arm end
+    [-5, 5,  rng(8,  14)],  // SW arm end
+    [0,  -5, rng(7,  12)],  // NW arm end
+    [0,  5,  rng(7,  12)],  // SE arm end
+    [4,  -4, rng(3,  7)],   // NE mid
+    [-4, 4,  rng(3,  7)],   // SW mid
+    [0,  -4, rng(3,  7)],   // NW mid
+    [0,  4,  rng(3,  7)],   // SE mid
+    [3,  0,  rng(3,  6)],   // E road POI (first one player encounters)
+    [-3, 0,  rng(3,  6)],   // W road POI (near AI)
+  ].forEach(([q, r, s]) => {
+    const t = tiles.get(tkey(q, r));
+    if (t) { t.poi = true; t.stack = s; }
+  });
+
+  // Mark and reveal the road connecting both cities
+  for (const k of ROAD_TILES) {
+    const t = tiles.get(k);
+    if (t) { t.road = true; t.revealed = true; }
+  }
+  // Reveal one hex around each city so both feel like real starting areas
+  revealAround(-5, 0);
+}
+
+function revealAround(q, r) {
+  const mark = (tq, tr) => { const t = tiles.get(tkey(tq, tr)); if (t) t.revealed = true; };
+  mark(q, r);
+  for (const [dq, dr] of DIRS) mark(q + dq, r + dr);
+}
+
+// ── Game state ────────────────────────────────────────────────────────────
+let turn = 1, gold = 5, health = 10, enemyHealth = 10;
+let army = { q: 5, r: 0, movesLeft: 3 };
+let hand = [];         // [{ id, name, atk, def, dying }]
+let cardIdSeq = 0;
+let selected = false;
+let phase = 'playing'; // 'playing' | 'capturing' | 'war' | 'waiting'
+let captureTarget = null;
+let committed = new Set(); // card ids selected for capture or war
+// reachable: Map<tkey, steps_cost>
+let reachable = new Map();
+
+// ── BFS reachable ─────────────────────────────────────────────────────────
+function computeReachable() {
+  if (!selected || army.movesLeft === 0) return new Map();
+  const costs = new Map([[tkey(army.q, army.r), 0]]);
+  const queue = [{ q: army.q, r: army.r, steps: 0 }];
+  while (queue.length) {
+    const { q, r, steps } = queue.shift();
+    if (steps >= army.movesLeft) continue;
+    for (const [dq, dr] of DIRS) {
+      const nq = q + dq, nr = r + dr, k = tkey(nq, nr);
+      if (!tiles.has(k) || costs.has(k) || fireTiles.has(k)) continue;
+      costs.set(k, steps + 1);
+      queue.push({ q: nq, r: nr, steps: steps + 1 });
+    }
+  }
+  costs.delete(tkey(army.q, army.r));
+  return costs;
+}
+
+// ── Units & Buildings ─────────────────────────────────────────────────────
+const UNIT_DEFS = {
+  Warrior:    { type: 'unit', tier: 1, name: 'Warrior',    cost: 1, atk: 2, def: 2, tags: ['Human', 'Melee', 'Physical'] },
+  Archer: {
+    type: 'unit', tier: 1, name: 'Archer', cost: 1, atk: 2, def: 1,
+    tags: ['Human', 'Range', 'Physical', 'Projectile'],
+    skirmish: ({ self, cbt }) => {
+      cbt.defDebuf++;
+      cbt.lines.push(cbt.tag('hit', `  ${self.name} fires → enemy DEF −1`));
+    },
+  },
+  Assassin: {
+    type: 'unit', tier: 1, name: 'Assassin', cost: 2, atk: 3, def: 0,
+    tags: ['Human', 'Melee', 'Physical', 'Stealth'],
+    skirmish: ({ self, cbt }) => {
+      const idx = cbt.defCards.findIndex(d => d.def < 3);
+      if (idx >= 0) {
+        const r = cbt.defCards.splice(idx, 1)[0];
+        cbt.lines.push(cbt.tag('hit', `  ${self.name} → removes ${r.name} (DEF ${r.def})`));
+      } else {
+        cbt.lines.push(cbt.tag('dim', `  ${self.name}: no target with DEF < 3`));
+      }
+    },
+  },
+  Apprentice: {
+    type: 'unit', tier: 1, name: 'Apprentice', cost: 2, atk: 2, def: 1,
+    tags: ['Human', 'Range', 'Magic', 'Projectile'],
+    combat: ({ self, cbt }) => {
+      if (Math.random() < 0.1) {
+        const effects = ['Burn', 'Slow', 'Blessing', 'Protection', 'Resurrection'];
+        cbt.lines.push(cbt.tag('hit', `  ${self.name} procs ${effects[rng(0, 4)]}! (effect pending)`));
+      }
+    },
+  },
+  Shieldbearer: {
+    type: 'unit', tier: 2, name: 'Shieldbearer', cost: 2, atk: 0, def: 3,
+    tags: ['Human', 'Melee', 'Physical'],
+    passive: ({ self, allies, idx, lines, tag }) => {
+      const buffed = [];
+      if (idx > 0)                  { allies[idx - 1].def += 1; buffed.push(allies[idx - 1].name); }
+      if (idx < allies.length - 1) { allies[idx + 1].def += 1; buffed.push(allies[idx + 1].name); }
+      if (buffed.length) lines.push(tag('dim', `  ${self.name}: +1 DEF to ${buffed.join(', ')}`));
+    },
+  },
+  Knight: {
+    type: 'unit', tier: 2, name: 'Knight', cost: 3, atk: 2, def: 3,
+    tags: ['Human', 'Melee', 'Physical', 'Mounted'],
+    antiProjectile: true, // halves incoming Projectile skirmish debuf after all archers fire
+  },
+};
+
+// unitPool: array of def refs Townhall draws from (buildings add to this)
+let unitPool = [];
+let buildings = new Set(); // built building ids
+let goldIncome = 5;
+let mana = 0, manaIncome = 0;
+// trainingLevels: { 'Warrior-atk': n, 'Warrior-def': n, ... } — upgrade counts
+const trainingLevels = {};
+
+// Defense
+let defenseMode = false;
+let defenders = new Set(); // card ids assigned to defend this turn
+
+// Spells
+const SPELL_DEFS = {
+  transmute: { type: 'spell', name: 'Transmute', school: 'Reality',     cost: 4, targeted: false, desc: '+1 gold' },
+  meteor:    { type: 'spell', name: 'Meteor',    school: 'Destruction',  cost: 4, targeted: true,  desc: 'Any hex: fire + −5 DEF' },
+  vision:    { type: 'spell', name: 'Vision',    school: 'Astral',       cost: 2, targeted: true,  desc: 'Reveal area' },
+  analyze:   { type: 'spell', name: 'Analyze',   school: 'Astral',       cost: 1, targeted: true,  desc: 'Exact stack count' },
+};
+let playerSpells = [];
+let activeSpell = null;
+
+// Fire tiles: set by Meteor, block movement for the current turn, clear next turn
+const fireTiles = new Set();
+
+// Glory Coins
+let gloryCoins = 0;
+const gloryUpgrades = { atk: 0, def: 0 }; // purchase counts, used for cost scaling + bonus
+
+// AI — full economic state mirrors the player
+const ai = {
+  gold: 5, goldIncome: 5,
+  hand: [],      // [{ name, atk, def, dying }]
+  unitPool: [],
+  buildings: new Set(),
+  attackCD: 4,
+};
+
+// Recompute F-ATK and F-DEF from components — call whenever any component changes
+function recompute(c) {
+  c.atk = c.baseAtk + c.tAtk + c.gAtk;
+  c.def = c.baseDef + c.tDef + c.gDef;
+}
+
+function makeCard(def) {
+  const tAtk = trainingLevels[`${def.name}-atk`] || 0;
+  const tDef = trainingLevels[`${def.name}-def`] || 0;
+  const gAtk = gloryUpgrades.atk;
+  const gDef = gloryUpgrades.def;
+  const c = {
+    id: cardIdSeq++,
+    type: 'unit',
+    tier: def.tier,
+    name: def.name,
+    cost: def.cost,
+    tags: [...def.tags],                  // copy so per-card mutations don't bleed into def
+    // Stat components
+    baseAtk: def.atk, baseDef: def.def,  // base (unit definition)
+    tAtk, tDef,                           // T-ATK / T-DEF (Training Ground)
+    gAtk, gDef,                           // G-ATK / G-DEF (Glory Coins)
+    // Final stats (F-ATK, F-DEF) — what combat and display use
+    atk: 0, def: 0,
+    dying: false,
+  };
+  recompute(c);
+  return c;
+}
+
+function drawCards(n) {
+  if (!unitPool.length) return;
+  for (let i = 0; i < n; i++) {
+    hand.push(makeCard(unitPool[rng(0, unitPool.length - 1)]));
+  }
+}
+
+// ── Building definitions ───────────────────────────────────────────────────
+const BUILDING_DEFS = [
+  {
+    type: 'building', id: 'barracks', name: 'Barracks', cost: 4,
+    desc: 'Adds Warrior to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Warrior),
+  },
+  {
+    type: 'building', id: 'archery', name: 'Archery Range', cost: 4,
+    desc: 'Adds Archer to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Archer),
+  },
+  {
+    type: 'building', id: 'thieves', name: 'Thieves Guild', cost: 4,
+    desc: 'Adds Assassin to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Assassin),
+  },
+  {
+    type: 'building', id: 'marketplace', name: 'Marketplace', cost: 4,
+    desc: '+2 gold income per turn.',
+    onBuild: () => { goldIncome += 2; },
+  },
+  {
+    type: 'building', id: 'training', name: 'Training Ground', cost: 4,
+    desc: 'Upgrade unit stats permanently (gold cost scales with upgrades).',
+    onBuild: () => {},
+  },
+  {
+    type: 'building', id: 'school', name: 'School', cost: 4,
+    desc: 'Adds Apprentice to pool. Unlocks Mana (+2/turn). Grants 3 random Tier 1 spells.',
+    onBuild: () => {
+      unitPool.push(UNIT_DEFS.Apprentice);
+      manaIncome += 2; mana += 2;
+      const shuffled = Object.keys(SPELL_DEFS).sort(() => Math.random() - 0.5);
+      playerSpells = shuffled.slice(0, 3);
+    },
+  },
+  {
+    type: 'building', id: 'garrison', name: 'Garrison', cost: 6,
+    desc: 'Adds Shieldbearer (T2) to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Shieldbearer),
+  },
+  {
+    type: 'building', id: 'stables', name: 'Stables', cost: 6,
+    desc: 'Adds Knight (T2) to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Knight),
+  },
+];
+
+function buildBuilding(id) {
+  const def = BUILDING_DEFS.find(b => b.id === id);
+  if (!def || buildings.has(id) || gold < def.cost) return;
+  gold -= def.cost;
+  buildings.add(id);
+  def.onBuild();
+  log(`Built ${def.name}.`);
+  update();
+  renderBuildPanel();
+}
+
+function trainUnit(unitName, stat) {
+  if (!buildings.has('training')) return;
+  const lvlKey = `${unitName}-${stat}`;
+  const cost = 1 + (trainingLevels[lvlKey] || 0);
+  if (gold < cost) return;
+  gold -= cost;
+  trainingLevels[lvlKey] = (trainingLevels[lvlKey] || 0) + 1;
+  // Apply retroactively to matching cards in hand via the training component
+  const comp = stat === 'atk' ? 'tAtk' : 'tDef';
+  hand.forEach(c => { if (c.name === unitName && !c.dying) { c[comp]++; recompute(c); } });
+  update();
+  renderBuildPanel();
+  renderHand();
+}
+
+function openBuild() {
+  renderBuildPanel();
+  document.getElementById('buildoverlay').classList.remove('hidden');
+}
+
+function closeBuild() {
+  document.getElementById('buildoverlay').classList.add('hidden');
+}
+
+function openGlory() {
+  renderGloryPanel();
+  document.getElementById('gloryoverlay').classList.remove('hidden');
+}
+
+function closeGlory() {
+  document.getElementById('gloryoverlay').classList.add('hidden');
+}
+
+function buyGloryUpgrade(stat) {
+  const cost = 1 + gloryUpgrades[stat];
+  if (gloryCoins < cost) return;
+  gloryCoins -= cost;
+  gloryUpgrades[stat]++;
+  // Apply retroactively via the glory component so breakdown stays accurate
+  const comp = stat === 'atk' ? 'gAtk' : 'gDef';
+  hand.forEach(c => { if (!c.dying) { c[comp]++; recompute(c); } });
+  log(`Kingdom ${stat.toUpperCase()} +1! All units upgraded. (Glory: ${gloryCoins})`);
+  update();
+  renderHand();
+  renderGloryPanel();
+}
+
+function renderGloryPanel() {
+  const list = document.getElementById('glorylist');
+  const rows = [
+    { stat: 'atk', label: 'ATK +1 (all units)', icon: '⚔' },
+    { stat: 'def', label: 'DEF +1 (all units)', icon: '🛡' },
+  ];
+  list.innerHTML = rows.map(({ stat, icon, label }) => {
+    const purchased = gloryUpgrades[stat];
+    const cost = 1 + purchased;
+    const canAfford = gloryCoins >= cost;
+    return `<div class="glory-row">
+      <span>${icon} ${label} <small>(lv ${purchased})</small></span>
+      <button class="gbtn" onclick="buyGloryUpgrade('${stat}')" ${!canAfford ? 'disabled' : ''}>${cost} ✦</button>
+    </div>`;
+  }).join('') +
+  `<div style="font-size:11px;color:#8b949e;margin-top:8px">Available: <b style="color:#f0c040">${gloryCoins} ✦</b></div>`;
+}
+
+function renderBuildPanel() {
+  const list = document.getElementById('buildlist');
+  list.innerHTML = '';
+  for (const b of BUILDING_DEFS) {
+    const built = buildings.has(b.id);
+    const canAfford = gold >= b.cost;
+    const div = document.createElement('div');
+    div.className = 'bcard' + (built ? ' built' : '');
+    let html = `<h3>${b.name}</h3><p>${b.desc}</p>`;
+    if (!built) {
+      html += `<div class="cost">${b.cost} gold</div>`;
+      html += `<button class="bbtn" onclick="buildBuilding('${b.id}')" ${(!canAfford) ? 'disabled' : ''}>Build</button>`;
+    } else {
+      html += `<div class="cost" style="color:#484f58">Built ✓</div>`;
+    }
+    // Training Ground: show upgrade rows when built
+    if (b.id === 'training' && built) {
+      const trainableUnits = Object.values(UNIT_DEFS).filter(u =>
+        unitPool.some(p => p.name === u.name)
+      );
+      if (trainableUnits.length) {
+        html += '<div class="upgrades">';
+        for (const u of trainableUnits) {
+          for (const stat of ['atk', 'def']) {
+            const lvl = trainingLevels[`${u.name}-${stat}`] || 0;
+            const cost = 1 + lvl;
+            const label = stat.toUpperCase();
+            html += `<div class="urow">
+              <span>${u.name} +${label} (lv${lvl})</span>
+              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')"
+                ${gold < cost ? 'disabled' : ''}>${cost}g</button>
+            </div>`;
+          }
+        }
+        html += '</div>';
+      } else {
+        html += '<div class="upgrades" style="font-size:11px;color:#484f58">Build unit buildings first.</div>';
+      }
+    }
+    div.innerHTML = html;
+    list.appendChild(div);
+  }
+}
+
+// ── Capture ───────────────────────────────────────────────────────────────
+function enterCapture(q, r) {
+  phase = 'capturing';
+  captureTarget = { q, r };
+  committed = new Set();
+  selected = false;
+  reachable = new Map();
+  const t = tiles.get(tkey(q, r));
+  log(`POI guarded by stack DEF ${t.stack}. Click cards to commit, then Capture!`);
+  updateCaptureBar();
+  renderHand();
+  render();
+}
+
+function cancelCapture() {
+  phase = 'playing';
+  captureTarget = null;
+  committed = new Set();
+  document.getElementById('capturebar').classList.remove('active');
+  log('Capture cancelled.');
+  renderHand();
+}
+
+function updateCaptureBar() {
+  const t = tiles.get(tkey(captureTarget.q, captureTarget.r));
+  const totalAtk = hand.filter(c => committed.has(c.id) && !c.dying)
+                       .reduce((s, c) => s + c.atk, 0);
+  const needed = t.stack;
+  document.getElementById('captureinfo').textContent =
+    `Committed ATK: ${totalAtk} / Need: >${needed}`;
+  document.getElementById('capturebtn').disabled = totalAtk <= needed;
+  document.getElementById('capturebar').classList.add('active');
+}
+
+function confirmCapture() {
+  const t = tiles.get(tkey(captureTarget.q, captureTarget.r));
+  const totalAtk = hand.filter(c => committed.has(c.id) && !c.dying)
+                       .reduce((s, c) => s + c.atk, 0);
+  if (totalAtk <= t.stack) return;
+
+  // Mark committed cards as dying
+  hand.forEach(c => { if (committed.has(c.id)) c.dying = true; });
+
+  // Clear the POI stack (captured)
+  t.poi = false; t.stack = null;
+
+  // Reward: 1 random unit from pool (fallback Warrior if pool empty)
+  const rewardPool = unitPool.length ? unitPool : [UNIT_DEFS.Warrior];
+  const reward = makeCard(rewardPool[rng(0, rewardPool.length - 1)]);
+  hand.push(reward);
+
+  phase = 'playing';
+  captureTarget = null;
+  committed = new Set();
+  document.getElementById('capturebar').classList.remove('active');
+  log(`POI captured! ${reward.name} joined your forces. Committed units die next turn.`);
+  renderHand();
+  render();
+}
+
+// ── War Party ─────────────────────────────────────────────────────────────
+// ── AI economy ───────────────────────────────────────────────────────────────
+function aiDrawCards() {
+  if (!ai.unitPool.length) return;
+  for (let i = 0; i < 3; i++)
+    ai.hand.push({ ...ai.unitPool[rng(0, ai.unitPool.length - 1)], dying: false });
+}
+
+function aiDecide() {
+  // Build in priority order — same logic a human would follow
+  const buildPriority = [
+    { id: 'barracks',    onBuild: () => ai.unitPool.push(UNIT_DEFS.Warrior) },
+    { id: 'archery',     onBuild: () => ai.unitPool.push(UNIT_DEFS.Archer) },
+    { id: 'thieves',     onBuild: () => ai.unitPool.push(UNIT_DEFS.Assassin) },
+    { id: 'marketplace', onBuild: () => { ai.goldIncome += 2; } },
+  ];
+  for (const b of buildPriority) {
+    if (!ai.buildings.has(b.id) && ai.gold >= 4) {
+      ai.gold -= 4;
+      ai.buildings.add(b.id);
+      b.onBuild();
+      break; // one building per turn
+    }
+  }
+}
+
+function aiTakeTurn() {
+  ai.hand = ai.hand.filter(c => !c.dying);
+  ai.gold += ai.goldIncome;
+  aiDrawCards();
+  aiDecide();
+  ai.attackCD--;
+}
+
+function generateAIDefense() {
+  // Use AI's actual hand — pick units with highest DEF to defend
+  const active = ai.hand.filter(c => !c.dying);
+  if (!active.length) {
+    // AI has nothing built yet — bare minimum fallback
+    return [{ name: 'Warrior', atk: 2, def: 2 }];
+  }
+  active.sort((a, b) => b.def - a.def);
+  const n = Math.max(1, Math.ceil(active.length * 0.5));
+  const chosen = active.slice(0, n);
+  chosen.forEach(c => { c.dying = true; }); // defenders expire after the fight
+  return chosen.map(({ name, atk, def }) => ({ name, atk, def }));
+}
+
+function generateAIForce() {
+  // Use AI's actual hand — pick units with highest ATK to attack
+  const active = ai.hand.filter(c => !c.dying);
+  if (!active.length) {
+    return [{ name: 'Warrior', atk: 2, def: 2 }, { name: 'Warrior', atk: 2, def: 2 }];
+  }
+  active.sort((a, b) => b.atk - a.atk);
+  const n = Math.max(2, Math.ceil(active.length * 0.6));
+  const chosen = active.slice(0, n);
+  chosen.forEach(c => { c.dying = true; }); // attackers are spent
+  return chosen.map(({ name, atk, def }) => ({ name, atk, def }));
+}
+
+// Shared combat phase resolver — deep-copy input arrays before calling
+function runPhases(atkCards, defCards, speedNote) {
+  const lines = [];
+  const tag = (cls, txt) => `<span class="${cls}">${txt}</span>`;
+
+  // Buff Phase — passives
+  lines.push(tag('dim', '── Buff Phase ──────────────────'));
+  let anyPassive = false;
+  atkCards.forEach((c, i) => {
+    const d = UNIT_DEFS[c.name];
+    if (d?.passive) { d.passive({ self: c, allies: atkCards, idx: i, lines, tag }); anyPassive = true; }
+  });
+  defCards.forEach((c, i) => {
+    const d = UNIT_DEFS[c.name];
+    if (d?.passive) { d.passive({ self: c, allies: defCards, idx: i, lines, tag }); anyPassive = true; }
+  });
+  if (!anyPassive) lines.push(tag('dim', '(No auras active)'));
+
+  // Pre-Battle (skirmish) — attacker skills fire against defCards
+  lines.push('');
+  lines.push(tag('dim', `── Pre-Battle (${speedNote}) ──`));
+  const origDefCount = defCards.length;
+  const cbt = { defCards, defDebuf: 0, lines, tag };
+  for (const c of atkCards) {
+    const d = UNIT_DEFS[c.name];
+    if (d?.skirmish) d.skirmish({ self: c, allies: atkCards, cbt });
+  }
+  // Knight anti-projectile: halve the debuf if any Knight is in the defending side
+  if (cbt.defDebuf > 0 && defCards.some(c => UNIT_DEFS[c.name]?.antiProjectile)) {
+    const orig = cbt.defDebuf;
+    cbt.defDebuf = Math.floor(cbt.defDebuf / 2);
+    lines.push(tag('dim', `  Knight shields: arrow debuf ${orig} → ${cbt.defDebuf}`));
+  }
+
+  // Combat phase skills
+  lines.push('');
+  lines.push(tag('dim', '── Combat ──────────────────────'));
+  [...atkCards, ...defCards].forEach(c => {
+    const d = UNIT_DEFS[c.name];
+    if (d?.combat) d.combat({ self: c, cbt });
+  });
+
+  const atkTotal = atkCards.reduce((s, c) => s + c.atk, 0);
+  const rawDef   = defCards.reduce((s, c) => s + c.def, 0);
+  const defTotal = Math.max(0, rawDef - cbt.defDebuf);
+
+  return { lines, tag, atkTotal, rawDef, defDebuf: cbt.defDebuf, defTotal, origDefCount, finalDefCount: defCards.length };
+}
+
+function buildDefenseCombatLog(aiForce, playerDef) {
+  const atkCards = aiForce.map(c => ({ ...c }));
+  const defCards = playerDef.map(c => ({ ...c }));
+  const { lines, tag, atkTotal, rawDef, defDebuf, defTotal, origDefCount, finalDefCount } =
+    runPhases(atkCards, defCards, 'enemy speed 6 > your speed 5');
+
+  lines.push(`  Enemy force:  ${aiForce.map(c => `${c.name}(ATK ${c.atk})`).join(' ')}`);
+  lines.push(`  Your defense: ${playerDef.length ? playerDef.map(c => `${c.name}(DEF ${c.def})`).join(' ') : '(undefended)'}`);
+  if (defDebuf || finalDefCount < origDefCount)
+    lines.push(tag('dim', `  After pre-battle: your DEF ${rawDef}−${defDebuf} = ${defTotal} (${origDefCount - finalDefCount} unit(s) removed)`));
+  lines.push('');
+  lines.push(`  ATK ${atkTotal}  vs  DEF ${defTotal}`);
+
+  const aiWins = atkTotal > defTotal;
+  lines.push('');
+  if (aiWins) {
+    lines.push(tag('lose', `  DEFEAT! Your kingdom: ${health} → ${Math.max(0, health - 1)} health`));
+    if (health - 1 <= 0) lines.push(tag('lose', '  ★ YOUR KINGDOM HAS FALLEN! ★'));
+  } else {
+    lines.push(tag('win', `  DEFENSE HOLDS! Enemy War Party repelled!`));
+    lines.push(tag('win', `  +1 Glory Coin awarded.`));
+  }
+  lines.push('');
+  lines.push(tag('dim', '(Your defending units are spent and die.)'));
+
+  return { html: lines.join('\n'), aiWins };
+}
+
+function resolveIncomingAttack() {
+  const aiForce = generateAIForce();
+  const playerDef = hand.filter(c => defenders.has(c.id) && !c.dying);
+  const result = buildDefenseCombatLog(aiForce, playerDef);
+
+  hand.forEach(c => { if (defenders.has(c.id)) c.dying = true; });
+  defenders = new Set();
+  defenseMode = false;
+  document.getElementById('defendbtn').classList.remove('active');
+  document.getElementById('defendbtn').textContent = 'Defend';
+  updateDefenseBar();
+
+  if (result.aiWins) { health = Math.max(0, health - 1); }
+  else { gloryCoins++; log(`Defense held! +1 Glory Coin (total: ${gloryCoins})`); }
+
+  document.getElementById('combattitle').textContent = '⚔ ENEMY WAR PARTY';
+  document.getElementById('combatlog').innerHTML = result.html;
+  document.getElementById('combatoverlay').classList.remove('hidden');
+  update();
+  renderHand();
+}
+
+// ── Defense mode ─────────────────────────────────────────────────────────────
+function toggleDefenseMode() {
+  if (phase !== 'playing' && !defenseMode) { log('Finish current action first.'); return; }
+  defenseMode = !defenseMode;
+  const btn = document.getElementById('defendbtn');
+  btn.textContent = defenseMode ? 'Done Defending' : 'Defend';
+  btn.classList.toggle('active', defenseMode);
+  if (!defenseMode) {
+    const count = hand.filter(c => defenders.has(c.id) && !c.dying).length;
+    log(count ? `Defense set: ${count} unit${count !== 1 ? 's' : ''} defending.` : 'Defense cleared.');
+  } else {
+    log('Defense mode: click cards to assign defenders against the next attack.');
+  }
+  updateDefenseBar();
+  renderHand();
+}
+
+function updateDefenseBar() {
+  const bar = document.getElementById('defensebar');
+  if (!defenseMode) { bar.classList.remove('active'); return; }
+  const defCards = hand.filter(c => defenders.has(c.id) && !c.dying);
+  const totalDef = defCards.reduce((s, c) => s + c.def, 0);
+  document.getElementById('defenseinfo').textContent =
+    `Defenders: ${defCards.length} unit${defCards.length !== 1 ? 's' : ''}, total DEF ${totalDef} — click cards to assign`;
+  bar.classList.add('active');
+}
+
+// ── Spells ────────────────────────────────────────────────────────────────────
+function renderSpellBar() {
+  const bar = document.getElementById('spellbar');
+  if (!playerSpells.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span style="font-size:11px;color:#7060a0;margin-right:4px;flex-shrink:0">Spells:</span>' +
+    playerSpells.map(id => {
+      const s = SPELL_DEFS[id];
+      const canCast = mana >= s.cost && (phase === 'playing' || (phase === 'spell' && activeSpell === id));
+      const isActive = activeSpell === id;
+      return `<button class="spellbtn${isActive ? ' active' : ''}" onclick="castSpell('${id}')" ${!canCast && !isActive ? 'disabled' : ''}>
+        ${s.name} (${s.cost}m) — ${s.desc}
+      </button>`;
+    }).join('');
+}
+
+function castSpell(id) {
+  const spell = SPELL_DEFS[id];
+  if (activeSpell === id) {
+    activeSpell = null; phase = 'playing';
+    log(`${spell.name} cancelled.`);
+    renderSpellBar(); render();
+    return;
+  }
+  if (mana < spell.cost) { log(`Need ${spell.cost} mana to cast ${spell.name}.`); return; }
+  if (!spell.targeted) {
+    mana -= spell.cost;
+    if (id === 'transmute') { gold += 1; log('Transmute: 4 mana → +1 gold.'); }
+    update(); renderSpellBar();
+    return;
+  }
+  if (phase !== 'playing') { log('Finish current action first.'); return; }
+  activeSpell = id;
+  phase = 'spell';
+  selected = false; reachable = new Map();
+  log(`${spell.name}: click a target hex on the map. (Click spell button again to cancel.)`);
+  renderSpellBar(); render();
+}
+
+function resolveSpellTarget(q, r) {
+  const k = tkey(q, r);
+  const t = tiles.get(k);
+  if (!t) { log('Invalid target.'); return; }
+  const spell = SPELL_DEFS[activeSpell];
+  if (activeSpell === 'meteor') {
+    mana -= spell.cost;
+    t.revealed = true;        // explosion reveals the hex
+    fireTiles.add(k);         // tile burns this turn — blocks movement
+    if (t.poi) {
+      t.stack -= 5;
+      if (t.stack <= 0) { t.poi = false; t.stack = null; log(`Meteor obliterates the stack at (${q},${r})! Tile is on fire.`); }
+      else { log(`Meteor hits (${q},${r}): stack DEF reduced to ${t.stack}. Tile on fire.`); }
+    } else {
+      log(`Meteor scorches (${q},${r}) — on fire this turn! Army must detour.`);
+    }
+    // Recalculate movement in case army path is blocked
+    if (selected) reachable = computeReachable();
+  } else if (activeSpell === 'vision') {
+    mana -= spell.cost;
+    for (let dq = -2; dq <= 2; dq++) {
+      for (let dr = Math.max(-2, -dq - 2); dr <= Math.min(2, -dq + 2); dr++) {
+        const nt = tiles.get(tkey(q + dq, r + dr));
+        if (nt) nt.revealed = true;
+      }
+    }
+    log(`Vision reveals the area around (${q},${r}).`);
+  } else if (activeSpell === 'analyze') {
+    if (!t || !t.poi) { log('Analyze: must target a POI hex.'); return; }
+    if (!t.revealed) { log('Analyze: target must be in visible area.'); return; }
+    mana -= spell.cost;
+    log(`Analyze: stack at (${q},${r}) has exactly ${t.stack} DEF power.`);
+  }
+  activeSpell = null; phase = 'playing';
+  update(); renderSpellBar(); render();
+}
+
+function enterWar() {
+  if (gold < 1) { log('Need at least 1 gold to send a War Party.'); return; }
+  phase = 'war';
+  committed = new Set();
+  selected = false;
+  reachable = new Map();
+  document.getElementById('warbar').classList.add('active');
+  updateWarBar();
+  renderHand();
+  render();
+}
+
+function cancelWar() {
+  phase = 'playing';
+  committed = new Set();
+  document.getElementById('warbar').classList.remove('active');
+  log('War Party cancelled.');
+  renderHand();
+}
+
+function updateWarBar() {
+  const atk = hand.filter(c => committed.has(c.id) && !c.dying)
+                  .reduce((s, c) => s + c.atk, 0);
+  const count = hand.filter(c => committed.has(c.id) && !c.dying).length;
+  document.getElementById('warinfo').textContent =
+    `Select your attacking force. Committed: ${count} unit${count !== 1 ? 's' : ''}, ATK ${atk}`;
+  document.getElementById('warbtn').disabled = count === 0 || gold < 1;
+}
+
+function launchWarParty() {
+  const attackers = hand.filter(c => committed.has(c.id) && !c.dying);
+  if (!attackers.length || gold < 1) return;
+  gold -= 1;
+
+  document.getElementById('warbar').classList.remove('active');
+  phase = 'playing';
+  committed = new Set();
+
+  if (!LOCAL_MODE) {
+    // Firebase mode: store attack, resolve against real opponent defense at turn end
+    pendingAttack = { attackers: attackers.map(({ name, atk, def }) => ({ name, atk, def })) };
+    log(`War party dispatched (${attackers.length} units). Result when both players end turn.`);
+    update(); renderHand(); render();
+    return;
+  }
+
+  // LOCAL_MODE: resolve immediately against AI defense
+  const aiDef = generateAIDefense();
+  const result = buildCombatLog(attackers, aiDef);
+  document.getElementById('combattitle').textContent = '⚔ WAR PARTY COMBAT';
+  document.getElementById('combatlog').innerHTML = result.html;
+  document.getElementById('combatoverlay').classList.remove('hidden');
+  if (result.win) { enemyHealth = Math.max(0, enemyHealth - 1); gloryCoins++; }
+  update(); renderHand(); render();
+}
+
+function buildCombatLog(attackers, defenders) {
+  const atkCards = attackers.map(c => ({ ...c }));
+  const defCards = defenders.map(c => ({ ...c }));
+  const { lines, tag, atkTotal, rawDef, defDebuf, defTotal, origDefCount, finalDefCount } =
+    runPhases(atkCards, defCards, 'attacker speed 6 > defender speed 5');
+
+  lines.push(`  Your force:    ${attackers.map(c => `${c.name}(ATK ${c.atk})`).join(' ')}`);
+  lines.push(`  Enemy defense: ${defenders.length ? defenders.map(c => `${c.name}(DEF ${c.def})`).join(' ') : '(undefended)'}`);
+  if (defDebuf || finalDefCount < origDefCount)
+    lines.push(tag('dim', `  After pre-battle: enemy DEF ${rawDef}−${defDebuf} = ${defTotal} (${origDefCount - finalDefCount} unit(s) removed)`));
+  lines.push('');
+  lines.push(`  ATK ${atkTotal}  vs  DEF ${defTotal}`);
+
+  const win = atkTotal > defTotal;
+  lines.push('');
+  if (win) {
+    lines.push(tag('win', `  VICTORY! Enemy kingdom: ${enemyHealth} → ${Math.max(0, enemyHealth - 1)} health`));
+    lines.push(tag('win', `  +1 Glory Coin awarded.`));
+    if (enemyHealth - 1 <= 0) lines.push(tag('win', '  ★ ENEMY KINGDOM DESTROYED! ★'));
+  } else {
+    lines.push(tag('lose', `  DEFEAT. Enemy defense held.`));
+  }
+  lines.push('');
+  lines.push(tag('dim', '(Defending army is spent and disappears.)'));
+
+  return { html: lines.join('\n'), win };
+}
+
+function closeCombat() {
+  document.getElementById('combatoverlay').classList.add('hidden');
+  if (!LOCAL_MODE && combatQueue.length) { showNextCombat(); return; }
+  if (enemyHealth <= 0) showGameOver(true);
+  else if (health <= 0) showGameOver(false);
+}
+
+function showGameOver(playerWon) {
+  document.getElementById('gameovermsg').textContent = playerWon ? '★  VICTORY  ★' : '★  DEFEAT  ★';
+  document.getElementById('gameovermsg').style.color = playerWon ? '#60d060' : '#e05050';
+  document.getElementById('gameoverdesc').textContent = playerWon
+    ? 'The enemy kingdom has fallen. Your legend is written.'
+    : 'Your kingdom has fallen. The enemy emerges victorious.';
+  document.getElementById('gameoveroverlay').classList.remove('hidden');
+}
+
+// ── Turn ──────────────────────────────────────────────────────────────────
+function endTurn() {
+  if (phase === 'capturing') cancelCapture();
+  if (phase === 'war') cancelWar();
+  if (phase === 'spell') { activeSpell = null; phase = 'playing'; renderSpellBar(); }
+  if (phase !== 'playing') return;
+  if (defenseMode) {
+    defenseMode = false;
+    document.getElementById('defendbtn').classList.remove('active');
+    document.getElementById('defendbtn').textContent = 'Defend';
+    updateDefenseBar();
+    renderHand();
+  }
+  selected = false;
+  reachable = new Map();
+
+  if (!LOCAL_MODE) { endTurnFirebase(); return; }
+
+  phase = 'waiting';
+  const btn = document.getElementById('endbtn');
+  btn.disabled = true;
+  btn.textContent = 'Waiting for opponent...';
+  log('You ended your turn. Waiting for opponent...');
+  render();
+  setTimeout(advanceTurn, 1500);
+}
+
+function advanceTurn() {
+  hand = hand.filter(c => !c.dying);
+  gold += goldIncome;
+  mana += manaIncome;
+  turn++;
+  army.movesLeft = 3;
+  const drew = unitPool.length ? 3 : 0;
+  drawCards(3);
+
+  // Extinguish fires from last turn
+  fireTiles.clear();
+
+  // AI only runs in local mode
+  if (LOCAL_MODE) aiTakeTurn();
+
+  phase = 'playing';
+  const btn = document.getElementById('endbtn');
+  btn.disabled = false;
+  btn.textContent = 'End Turn';
+  const drewMsg = drew ? `Townhall drew ${drew} cards.` : 'Townhall has no unit pool yet — build Barracks!';
+  log(`Turn ${turn} begins. +${goldIncome} gold. ${drewMsg}`);
+  update();
+  renderHand();
+  renderSpellBar();
+  render();
+
+  // AI attacks after a short delay (local mode only)
+  if (LOCAL_MODE && ai.attackCD <= 0) {
+    ai.attackCD = 3 + rng(0, 2);
+    setTimeout(resolveIncomingAttack, 900);
+  }
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────
+function log(msg) { document.getElementById('logline').textContent = msg; }
+
+function update() {
+  document.getElementById('sTurn').textContent = turn;
+  document.getElementById('sGold').textContent = gold;
+  document.getElementById('sHealth').textContent = health;
+  document.getElementById('sMoves').textContent = army.movesLeft;
+  document.getElementById('sGlory').textContent = gloryCoins;
+  if (manaIncome > 0) {
+    document.getElementById('manaDisplay').style.display = '';
+    document.getElementById('sMana').textContent = mana;
+  }
+  renderSpellBar();
+  // Show enemy health label dynamically
+  let enemyEl = document.getElementById('sEnemyHealth');
+  if (!enemyEl) {
+    const span = document.createElement('span');
+    span.innerHTML = `Enemy <b id="sEnemyHealth">${enemyHealth}</b> ♥`;
+    span.style.color = '#e08080';
+    document.getElementById('endbtn').before(span);
+  } else {
+    enemyEl.textContent = enemyHealth;
+  }
+}
+
+function renderHand() {
+  const el = document.getElementById('hand');
+  el.innerHTML = '';
+  if (!hand.length) { el.textContent = 'Hand empty.'; return; }
+  for (const c of hand) {
+    const div = document.createElement('div');
+    const isCommitted = committed.has(c.id);
+    const isDefending = defenders.has(c.id);
+    let cls = 'card';
+    if (c.dying) cls += ' dying';
+    else if (isCommitted) cls += ' committed';
+    else if (isDefending) cls += ' defending';
+    div.className = cls;
+    const bonus = (c.tAtk + c.gAtk > 0 ? ' ↑' : '') + (c.tDef + c.gDef > 0 ? ' ↑' : '');
+    div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b>` +
+      `<span style="color:#484f58;font-size:10px">T${c.tier} · ${c.cost}g</span>` +
+      `<span>ATK ${c.atk}  DEF ${c.def}${bonus}</span>` +
+      `<span style="color:#3a4a5a;font-size:10px">${c.tags.join(' · ')}</span>`;
+    if ((phase === 'capturing' || phase === 'war') && !c.dying) {
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        if (committed.has(c.id)) committed.delete(c.id);
+        else committed.add(c.id);
+        if (phase === 'capturing') updateCaptureBar();
+        else updateWarBar();
+        renderHand();
+      };
+    } else if (defenseMode && !c.dying) {
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        if (defenders.has(c.id)) defenders.delete(c.id);
+        else defenders.add(c.id);
+        updateDefenseBar();
+        renderHand();
+      };
+    }
+    el.appendChild(div);
+  }
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────
+function resize() {
+  canvas.width = canvas.offsetWidth || 900;
+  canvas.height = canvas.offsetHeight || 520;
+}
+
+function hexPath(cx, cy) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + (Math.PI / 3) * i; // pointy-top
+    i === 0
+      ? ctx.moveTo(cx + SIZE * Math.cos(a), cy + SIZE * Math.sin(a))
+      : ctx.lineTo(cx + SIZE * Math.cos(a), cy + SIZE * Math.sin(a));
+  }
+  ctx.closePath();
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const ox = canvas.width / 2, oy = canvas.height / 2;
+
+  for (const t of tiles.values()) {
+    const { x, y } = h2p(t.q, t.r);
+    const cx = ox + x, cy = oy + y;
+    const k = tkey(t.q, t.r);
+    const isReach = reachable.has(k);
+
+    hexPath(cx, cy);
+
+    const isFire = fireTiles.has(k);
+
+    // Spell targeting highlight for unrevealed tiles (Meteor/Vision can target anywhere)
+    const spellHighlight =
+      phase === 'spell' && (
+        (activeSpell === 'meteor') ||
+        (activeSpell === 'vision') ||
+        (activeSpell === 'analyze' && t.revealed && t.poi)
+      );
+
+    if (!t.revealed) {
+      ctx.fillStyle = isFire ? '#3a1000' : '#0d1117';
+      ctx.fill();
+      ctx.strokeStyle = spellHighlight
+        ? (activeSpell === 'meteor' ? '#ff6020' : '#8060d0')
+        : (isFire ? '#803010' : '#1c2128');
+      ctx.lineWidth = spellHighlight ? 2 : 1;
+      ctx.stroke();
+      if (isFire) {
+        ctx.fillStyle = '#ff4000';
+        ctx.font = `${Math.floor(SIZE * 0.4)}px monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🔥', cx, cy);
+      }
+      continue;
+    }
+
+    let fill = '#12202e';
+    if (t.poi)   fill = '#132613';
+    if (isReach) fill = '#0e2e30';
+    if (isFire)  fill = '#2a0e00';
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    let strokeColor = isReach ? '#38a8a8' : '#263040';
+    let strokeWidth = isReach ? 2 : 1;
+    if (spellHighlight) {
+      strokeColor = activeSpell === 'meteor' ? '#ff6020' : activeSpell === 'vision' ? '#8060d0' : '#40c0c0';
+      strokeWidth = 2;
+    }
+    if (isFire) { strokeColor = '#d04000'; strokeWidth = 2; }
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
+    ctx.stroke();
+
+    if (isFire) {
+      ctx.fillStyle = '#ff4000';
+      ctx.font = `${Math.floor(SIZE * 0.4)}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🔥', cx, cy);
+    } else if (t.poi) {
+      ctx.fillStyle = '#f0c040';
+      ctx.font = `bold ${Math.floor(SIZE * 0.36)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`~${t.stack}`, cx, cy);
+    }
+  }
+
+  // Road: draw a dirt path through road tile centers, ordered west→east
+  {
+    const roadOrdered = [...tiles.values()]
+      .filter(t => t.road)
+      .sort((a, b) => a.q - b.q);
+    if (roadOrdered.length > 1) {
+      const pts = roadOrdered.map(t => { const p = h2p(t.q, t.r); return [ox + p.x, oy + p.y]; });
+      // Border (dark)
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.strokeStyle = '#2e1f08';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+      // Surface (sandy)
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.strokeStyle = '#9c7a40';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      // Center dashes
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.strokeStyle = '#c8a060';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 10]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Player army
+  {
+    const { x, y } = h2p(army.q, army.r);
+    const cx = ox + x, cy = oy + y;
+    ctx.beginPath();
+    ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = selected ? '#5ab0f0' : '#2e70c0';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(SIZE * 0.3)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('P', cx, cy);
+  }
+
+  // Enemy castle (always visible — road reveals it at start)
+  {
+    const ec = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
+    const { x, y } = h2p(ec.q, ec.r);
+    const cx = ox + x, cy = oy + y;
+    ctx.beginPath();
+    ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = enemyHealth <= 0 ? '#444' : '#b03030';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(SIZE * 0.28)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('E', cx, cy - SIZE * 0.08);
+    ctx.font = `${Math.floor(SIZE * 0.22)}px monospace`;
+    ctx.fillStyle = '#ffb0b0';
+    ctx.fillText(`♥${enemyHealth}`, cx, cy + SIZE * 0.2);
+  }
+}
+
+// ── Input ─────────────────────────────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  if (phase === 'waiting') return;
+  const rect = canvas.getBoundingClientRect();
+  const ox = canvas.width / 2, oy = canvas.height / 2;
+  const { q, r } = p2h(e.clientX - rect.left - ox, e.clientY - rect.top - oy);
+  const k = tkey(q, r);
+  if (!tiles.has(k)) return;
+
+  if (phase === 'spell') { resolveSpellTarget(q, r); return; }
+
+  // While capturing: clicking army re-opens capture UI on current POI
+  if (phase === 'capturing') {
+    if (q === army.q && r === army.r) {
+      const t = tiles.get(tkey(army.q, army.r));
+      if (t && t.poi) enterCapture(army.q, army.r);
+    }
+    return;
+  }
+
+  // Toggle army selection
+  if (q === army.q && r === army.r) {
+    // If on enemy city, re-open war UI
+    const ec = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
+    if (q === ec.q && r === ec.r && enemyHealth > 0) { enterWar(); return; }
+    // If standing on an uncaptured POI, re-open capture instead of just selecting
+    const here = tiles.get(k);
+    if (here && here.poi && here.stack !== null) {
+      enterCapture(q, r);
+      return;
+    }
+    selected = !selected;
+    reachable = computeReachable();
+    log(selected
+      ? `Army selected — ${army.movesLeft} moves left. Click a highlighted tile.`
+      : 'Deselected.');
+    render();
+    return;
+  }
+
+  // Move to reachable tile
+  if (selected && reachable.has(k)) {
+    army.movesLeft -= reachable.get(k);
+    army.q = q; army.r = r;
+    revealAround(q, r);
+    reachable = computeReachable();
+    if (army.movesLeft === 0) { selected = false; reachable = new Map(); }
+    const t = tiles.get(k);
+    const ec2 = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
+    if (q === ec2.q && r === ec2.r) {
+      update(); render();
+      if (enemyHealth > 0) enterWar();
+      else log('The enemy kingdom has already fallen.');
+    } else if (t.poi && t.stack !== null) {
+      update(); render();
+      enterCapture(q, r); // auto-open capture UI
+    } else {
+      log(`Moved to (${q},${r}). Moves left: ${army.movesLeft}.`);
+      update(); render();
+    }
+    return;
+  }
+
+  if (selected) { log('Cannot reach that hex with remaining moves.'); return; }
+
+  // Info click on revealed tile
+  const t = tiles.get(k);
+  if (!t.revealed) { log('Shrouded in fog of war.'); return; }
+  log(t.poi
+    ? `POI at (${q},${r}) — neutral stack power ~${t.stack}.`
+    : `Plains at (${q},${r}).`);
+});
+
+// ── Multiplayer ───────────────────────────────────────────────────────────
+const LOCAL_MODE = true; // set false to use Firebase
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyBX7k7uLH8wxlRdJKv7B4H7Ul_IEkYLf1w',
+  authDomain: 'sword-and-glory-27f26.firebaseapp.com',
+  databaseURL: 'https://sword-and-glory-27f26-default-rtdb.firebaseio.com',
+  projectId: 'sword-and-glory-27f26',
+  storageBucket: 'sword-and-glory-27f26.firebasestorage.app',
+  messagingSenderId: '760973319572',
+  appId: '1:760973319572:web:42e2e92ea95c47c111c381',
+};
+
+let db = null;
+let gameId = null;
+let myRole = null;        // 'p1' | 'p2'
+let pendingAttack = null; // war party declared this turn, resolved at turn end
+let combatQueue = [];     // modals to show sequentially at turn resolution
+let turnRef = null;       // active Firebase listener
+
+// Hex coords for each player's own castle and enemy castle
+const MY_CASTLE    = () => myRole === 'p2' ? { q: -5, r: 0 } : { q:  5, r: 0 };
+const ENEMY_CASTLE = () => myRole === 'p2' ? { q:  5, r: 0 } : { q: -5, r: 0 };
+
+function initMultiplayer() {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+
+  const params = new URLSearchParams(window.location.search);
+  gameId = params.get('game');
+
+  if (gameId) {
+    // Joining as P2 — start at west arm
+    myRole = 'p2';
+    army = { q: -5, r: 0, movesLeft: 3 };
+    revealAround(army.q, army.r);
+    render();
+    log('Joined as Player 2. Waiting for Player 1 to start...');
+  } else {
+    // Creating as P1 — start at east arm (default)
+    myRole = 'p1';
+    gameId = Math.random().toString(36).slice(2, 8).toUpperCase();
+    window.history.replaceState(null, '', `?game=${gameId}`);
+    db.ref(`games/${gameId}/meta`).set({ created: Date.now() });
+    const url = `${location.origin}${location.pathname}?game=${gameId}`;
+    document.getElementById('sharebar').style.display = '';
+    document.getElementById('shareurl').textContent = url;
+    log('Game created! Share the URL above with your opponent.');
+  }
+
+  listenForOpponent();
+}
+
+function listenForOpponent() {
+  if (turnRef) turnRef.off();
+  turnRef = db.ref(`games/${gameId}/turns/${turn}`);
+  turnRef.on('value', snap => {
+    const data = snap.val();
+    if (!data?.p1?.ended || !data?.p2?.ended) return;
+    turnRef.off();
+    const myData = data[myRole];
+    const opData = data[myRole === 'p1' ? 'p2' : 'p1'];
+    resolveMultiplayerTurn(myData, opData);
+  });
+}
+
+function endTurnFirebase() {
+  const myDefenders = hand
+    .filter(c => defenders.has(c.id) && !c.dying)
+    .map(({ name, atk, def }) => ({ name, atk, def }));
+
+  db.ref(`games/${gameId}/turns/${turn}/${myRole}`).set({
+    ended: true,
+    defenders: myDefenders,
+    attack: pendingAttack,
+  });
+  pendingAttack = null;
+
+  phase = 'waiting';
+  document.getElementById('endbtn').disabled = true;
+  document.getElementById('endbtn').textContent = 'Waiting for opponent...';
+  log('Waiting for opponent...');
+  render();
+}
+
+function resolveMultiplayerTurn(myData, opData) {
+  combatQueue = [];
+
+  // Mark my defending cards as dying — they were spent this turn
+  hand.forEach(c => { if (defenders.has(c.id)) c.dying = true; });
+  defenders = new Set();
+
+  // Opponent attacked me — resolve against my defenders
+  if (opData.attack) {
+    const result = buildDefenseCombatLog(opData.attack.attackers, myData.defenders || []);
+    if (result.aiWins) health = Math.max(0, health - 1);
+    else gloryCoins++;
+    combatQueue.push({ title: '⚔ ENEMY WAR PARTY', html: result.html });
+  }
+
+  // I attacked opponent — resolve against their defenders
+  if (myData.attack) {
+    const result = buildCombatLog(myData.attack.attackers, opData.defenders || []);
+    if (result.win) { enemyHealth = Math.max(0, enemyHealth - 1); gloryCoins++; }
+    combatQueue.push({ title: '⚔ WAR PARTY RESULT', html: result.html });
+  }
+
+  showNextCombat();
+}
+
+function showNextCombat() {
+  if (!combatQueue.length) {
+    advanceTurn();
+    listenForOpponent();
+    return;
+  }
+  const { title, html } = combatQueue.shift();
+  document.getElementById('combattitle').textContent = title;
+  document.getElementById('combatlog').innerHTML = html;
+  document.getElementById('combatoverlay').classList.remove('hidden');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => { resize(); render(); });
+resize();
+buildMap();
+revealAround(army.q, army.r);
+hand = [makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior)];
+render();
+update();
+renderHand();
+if (!LOCAL_MODE) {
+  initMultiplayer();
+} else {
+  log('Build Barracks to start drawing units each turn. Starting garrison: 3 Warriors.');
+}
+</script>
+</body>
+</html>
