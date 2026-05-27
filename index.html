@@ -452,9 +452,52 @@ function computeReachable() {
 // ── Units & Buildings ─────────────────────────────────────────────────────
 const UNIT_DEFS = {
   Warrior:    { type: 'unit', tier: 1, name: 'Warrior',    cost: 1, atk: 2, def: 2, tags: ['Human', 'Melee', 'Physical'] },
-  Archer:     { type: 'unit', tier: 1, name: 'Archer',     cost: 1, atk: 2, def: 1, tags: ['Human', 'Range', 'Physical', 'Projectile'] },
-  Assassin:   { type: 'unit', tier: 1, name: 'Assassin',   cost: 2, atk: 3, def: 0, tags: ['Human', 'Melee', 'Physical', 'Stealth'] },
-  Apprentice: { type: 'unit', tier: 1, name: 'Apprentice', cost: 2, atk: 2, def: 1, tags: ['Human', 'Range', 'Magic', 'Projectile'] },
+  Archer: {
+    type: 'unit', tier: 1, name: 'Archer', cost: 1, atk: 2, def: 1,
+    tags: ['Human', 'Range', 'Physical', 'Projectile'],
+    skirmish: ({ self, cbt }) => {
+      cbt.defDebuf++;
+      cbt.lines.push(cbt.tag('hit', `  ${self.name} fires → enemy DEF −1`));
+    },
+  },
+  Assassin: {
+    type: 'unit', tier: 1, name: 'Assassin', cost: 2, atk: 3, def: 0,
+    tags: ['Human', 'Melee', 'Physical', 'Stealth'],
+    skirmish: ({ self, cbt }) => {
+      const idx = cbt.defCards.findIndex(d => d.def < 3);
+      if (idx >= 0) {
+        const r = cbt.defCards.splice(idx, 1)[0];
+        cbt.lines.push(cbt.tag('hit', `  ${self.name} → removes ${r.name} (DEF ${r.def})`));
+      } else {
+        cbt.lines.push(cbt.tag('dim', `  ${self.name}: no target with DEF < 3`));
+      }
+    },
+  },
+  Apprentice: {
+    type: 'unit', tier: 1, name: 'Apprentice', cost: 2, atk: 2, def: 1,
+    tags: ['Human', 'Range', 'Magic', 'Projectile'],
+    combat: ({ self, cbt }) => {
+      if (Math.random() < 0.1) {
+        const effects = ['Burn', 'Slow', 'Blessing', 'Protection', 'Resurrection'];
+        cbt.lines.push(cbt.tag('hit', `  ${self.name} procs ${effects[rng(0, 4)]}! (effect pending)`));
+      }
+    },
+  },
+  Shieldbearer: {
+    type: 'unit', tier: 2, name: 'Shieldbearer', cost: 2, atk: 0, def: 3,
+    tags: ['Human', 'Melee', 'Physical'],
+    passive: ({ self, allies, idx, lines, tag }) => {
+      const buffed = [];
+      if (idx > 0)                  { allies[idx - 1].def += 1; buffed.push(allies[idx - 1].name); }
+      if (idx < allies.length - 1) { allies[idx + 1].def += 1; buffed.push(allies[idx + 1].name); }
+      if (buffed.length) lines.push(tag('dim', `  ${self.name}: +1 DEF to ${buffed.join(', ')}`));
+    },
+  },
+  Knight: {
+    type: 'unit', tier: 2, name: 'Knight', cost: 3, atk: 2, def: 3,
+    tags: ['Human', 'Melee', 'Physical', 'Mounted'],
+    antiProjectile: true, // halves incoming Projectile skirmish debuf after all archers fire
+  },
 };
 
 // unitPool: array of def refs Townhall draws from (buildings add to this)
@@ -568,6 +611,16 @@ const BUILDING_DEFS = [
       const shuffled = Object.keys(SPELL_DEFS).sort(() => Math.random() - 0.5);
       playerSpells = shuffled.slice(0, 3);
     },
+  },
+  {
+    type: 'building', id: 'garrison', name: 'Garrison', cost: 6,
+    desc: 'Adds Shieldbearer (T2) to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Shieldbearer),
+  },
+  {
+    type: 'building', id: 'stables', name: 'Stables', cost: 6,
+    desc: 'Adds Knight (T2) to Townhall pool.',
+    onBuild: () => unitPool.push(UNIT_DEFS.Knight),
   },
 ];
 
@@ -812,51 +865,69 @@ function generateAIForce() {
   return chosen.map(({ name, atk, def }) => ({ name, atk, def }));
 }
 
-function buildDefenseCombatLog(aiForce, playerDef) {
-  let lines = [];
-  const tag = (cls, text) => `<span class="${cls}">${text}</span>`;
+// Shared combat phase resolver — deep-copy input arrays before calling
+function runPhases(atkCards, defCards, speedNote) {
+  const lines = [];
+  const tag = (cls, txt) => `<span class="${cls}">${txt}</span>`;
 
+  // Buff Phase — passives
   lines.push(tag('dim', '── Buff Phase ──────────────────'));
-  lines.push(tag('dim', '(No auras active yet)'));
+  let anyPassive = false;
+  atkCards.forEach((c, i) => {
+    const d = UNIT_DEFS[c.name];
+    if (d?.passive) { d.passive({ self: c, allies: atkCards, idx: i, lines, tag }); anyPassive = true; }
+  });
+  defCards.forEach((c, i) => {
+    const d = UNIT_DEFS[c.name];
+    if (d?.passive) { d.passive({ self: c, allies: defCards, idx: i, lines, tag }); anyPassive = true; }
+  });
+  if (!anyPassive) lines.push(tag('dim', '(No auras active)'));
 
+  // Pre-Battle (skirmish) — attacker skills fire against defCards
   lines.push('');
-  lines.push(tag('dim', '── Pre-Battle (enemy speed 6 > your speed 5) ──'));
-
-  let defCards = [...playerDef];
-  let defDebuf = 0;
-
-  for (const c of aiForce) {
-    if (c.name === 'Archer') {
-      defDebuf += 1;
-      lines.push(tag('hit', `  Enemy Archer fires → your DEF −1`));
-    }
+  lines.push(tag('dim', `── Pre-Battle (${speedNote}) ──`));
+  const origDefCount = defCards.length;
+  const cbt = { defCards, defDebuf: 0, lines, tag };
+  for (const c of atkCards) {
+    const d = UNIT_DEFS[c.name];
+    if (d?.skirmish) d.skirmish({ self: c, allies: atkCards, cbt });
   }
-  for (const c of aiForce) {
-    if (c.name === 'Assassin') {
-      const idx = defCards.findIndex(d => d.def < 3);
-      if (idx >= 0) {
-        const removed = defCards.splice(idx, 1)[0];
-        lines.push(tag('hit', `  Enemy Assassin → removes your ${removed.name} (DEF ${removed.def})`));
-      } else {
-        lines.push(tag('dim', `  Enemy Assassin: no target with DEF < 3`));
-      }
-    }
+  // Knight anti-projectile: halve the debuf if any Knight is in the defending side
+  if (cbt.defDebuf > 0 && defCards.some(c => UNIT_DEFS[c.name]?.antiProjectile)) {
+    const orig = cbt.defDebuf;
+    cbt.defDebuf = Math.floor(cbt.defDebuf / 2);
+    lines.push(tag('dim', `  Knight shields: arrow debuf ${orig} → ${cbt.defDebuf}`));
   }
 
-  const aiAtk = aiForce.reduce((s, c) => s + c.atk, 0);
-  const rawDef = defCards.reduce((s, c) => s + c.def, 0);
-  const adjDef = Math.max(0, rawDef - defDebuf);
-
+  // Combat phase skills
   lines.push('');
   lines.push(tag('dim', '── Combat ──────────────────────'));
+  [...atkCards, ...defCards].forEach(c => {
+    const d = UNIT_DEFS[c.name];
+    if (d?.combat) d.combat({ self: c, cbt });
+  });
+
+  const atkTotal = atkCards.reduce((s, c) => s + c.atk, 0);
+  const rawDef   = defCards.reduce((s, c) => s + c.def, 0);
+  const defTotal = Math.max(0, rawDef - cbt.defDebuf);
+
+  return { lines, tag, atkTotal, rawDef, defDebuf: cbt.defDebuf, defTotal, origDefCount, finalDefCount: defCards.length };
+}
+
+function buildDefenseCombatLog(aiForce, playerDef) {
+  const atkCards = aiForce.map(c => ({ ...c }));
+  const defCards = playerDef.map(c => ({ ...c }));
+  const { lines, tag, atkTotal, rawDef, defDebuf, defTotal, origDefCount, finalDefCount } =
+    runPhases(atkCards, defCards, 'enemy speed 6 > your speed 5');
+
   lines.push(`  Enemy force:  ${aiForce.map(c => `${c.name}(ATK ${c.atk})`).join(' ')}`);
   lines.push(`  Your defense: ${playerDef.length ? playerDef.map(c => `${c.name}(DEF ${c.def})`).join(' ') : '(undefended)'}`);
-  if (defDebuf || defCards.length < playerDef.length)
-    lines.push(tag('dim', `  After pre-battle: your DEF ${rawDef}−${defDebuf} = ${adjDef} (${playerDef.length - defCards.length} unit(s) removed)`));
+  if (defDebuf || finalDefCount < origDefCount)
+    lines.push(tag('dim', `  After pre-battle: your DEF ${rawDef}−${defDebuf} = ${defTotal} (${origDefCount - finalDefCount} unit(s) removed)`));
   lines.push('');
-  lines.push(`  ATK ${aiAtk}  vs  DEF ${adjDef}`);
+  lines.push(`  ATK ${atkTotal}  vs  DEF ${defTotal}`);
 
-  const aiWins = aiAtk > adjDef;
+  const aiWins = atkTotal > defTotal;
   lines.push('');
   if (aiWins) {
     lines.push(tag('lose', `  DEFEAT! Your kingdom: ${health} → ${Math.max(0, health - 1)} health`));
@@ -1053,49 +1124,15 @@ function launchWarParty() {
 }
 
 function buildCombatLog(attackers, defenders) {
-  let lines = [];
-  const tag = (cls, text) => `<span class="${cls}">${text}</span>`;
+  const atkCards = attackers.map(c => ({ ...c }));
+  const defCards = defenders.map(c => ({ ...c }));
+  const { lines, tag, atkTotal, rawDef, defDebuf, defTotal, origDefCount, finalDefCount } =
+    runPhases(atkCards, defCards, 'attacker speed 6 > defender speed 5');
 
-  // Buff phase
-  lines.push(tag('dim', '── Buff Phase ──────────────────'));
-  lines.push(tag('dim', '(No auras active yet)'));
-
-  // Pre-battle — attacker first (Speed 6 > 5)
-  lines.push('');
-  lines.push(tag('dim', '── Pre-Battle (attacker speed 6 > defender speed 5) ──'));
-
-  let defCards = [...defenders];
-  let defDebuf = 0;
-
-  for (const c of attackers) {
-    if (c.name === 'Archer') {
-      defDebuf += 1;
-      lines.push(tag('hit', `  Archer fires → enemy DEF −1`));
-    }
-  }
-  for (const c of attackers) {
-    if (c.name === 'Assassin') {
-      const idx = defCards.findIndex(d => d.def < 3);
-      if (idx >= 0) {
-        const removed = defCards.splice(idx, 1)[0];
-        lines.push(tag('hit', `  Assassin strikes → removes enemy ${removed.name} (DEF ${removed.def})`));
-      } else {
-        lines.push(tag('dim', `  Assassin: no target with DEF < 3`));
-      }
-    }
-  }
-
-  // Combat totals
-  const atkTotal = attackers.reduce((s, c) => s + c.atk, 0);
-  const rawDef   = defCards.reduce((s, c) => s + c.def, 0);
-  const defTotal = Math.max(0, rawDef - defDebuf);
-
-  lines.push('');
-  lines.push(tag('dim', '── Combat ──────────────────────'));
-  lines.push(`  Your force:   ${attackers.map(c => `${c.name}(ATK ${c.atk})`).join(' ')}`);
-  lines.push(`  Enemy defense: ${defenders.map(c => `${c.name}(DEF ${c.def})`).join(' ')}`);
-  if (defDebuf || defCards.length < defenders.length)
-    lines.push(tag('dim', `  After pre-battle: enemy DEF ${rawDef}−${defDebuf} = ${defTotal} (${defenders.length - defCards.length} unit(s) removed)`));
+  lines.push(`  Your force:    ${attackers.map(c => `${c.name}(ATK ${c.atk})`).join(' ')}`);
+  lines.push(`  Enemy defense: ${defenders.length ? defenders.map(c => `${c.name}(DEF ${c.def})`).join(' ') : '(undefended)'}`);
+  if (defDebuf || finalDefCount < origDefCount)
+    lines.push(tag('dim', `  After pre-battle: enemy DEF ${rawDef}−${defDebuf} = ${defTotal} (${origDefCount - finalDefCount} unit(s) removed)`));
   lines.push('');
   lines.push(`  ATK ${atkTotal}  vs  DEF ${defTotal}`);
 
