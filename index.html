@@ -374,7 +374,7 @@ canvas { flex: 1; display: block; width: 100%; }
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const SQ3 = Math.sqrt(3);
-const SIZE = 40;
+let SIZE = 40;
 
 // ── Hex math (pointy-top axial) ───────────────────────────────────────────
 
@@ -399,72 +399,82 @@ const DIRS = [[1,0],[-1,0],[1,-1],[-1,1],[0,-1],[0,1]];
 const tiles = new Map();
 const tkey = (q, r) => `${q},${r}`;
 
-// Road: the revealed corridor connecting both cities — impassable for armies (symbolic only)
-const ROAD_TILES = new Set(['5,0','4,0','3,0','2,0','1,0','0,0','-1,0','-2,0','-3,0','-4,0','-5,0']);
+// Road: r=0 row connecting both cities — impassable for armies (symbolic only)
+const ROAD_TILES = new Set(Array.from({length: 19}, (_, i) => `${i - 9},0`));
 // Interior road tiles: road minus the two city endpoints — blocked in BFS
-const INTERIOR_ROAD = new Set([...ROAD_TILES].filter(k => k !== '5,0' && k !== '-5,0'));
+const INTERIOR_ROAD = new Set([...ROAD_TILES].filter(k => k !== '9,0' && k !== '-9,0'));
 
 function rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
 // All % abilities use this so luck buffs apply uniformly
 function effectiveChance(base) { return Math.min(1, base + luck * 0.05); }
 
 function buildMap() {
-  // Center cluster: radius 2
-  for (let q = -2; q <= 2; q++) {
-    for (let r = Math.max(-2, -q - 2); r <= Math.min(2, -q + 2); r++) {
-      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false });
+  tiles.clear();
+  // 19×11 grid: q∈[-9,9], r∈[-5,5]
+  for (let r = -5; r <= 5; r++) {
+    for (let q = -9; q <= 9; q++) {
+      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false, road: false });
     }
   }
-  // 6 arms: 3 hexes each in each primary direction
-  for (const [dq, dr] of DIRS) {
-    for (let i = 3; i <= 5; i++) {
-      const q = dq * i, r = dr * i;
-      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false });
-    }
-  }
-  // POIs on neutral arms and center; player (E arm) and AI (W arm) have no POIs
-  [
-    [0,  0,  rng(12, 18)],  // center — most contested
-    [5,  -5, rng(8,  14)],  // NE arm end
-    [-5, 5,  rng(8,  14)],  // SW arm end
-    [0,  -5, rng(7,  12)],  // NW arm end
-    [0,  5,  rng(7,  12)],  // SE arm end
-    [4,  -4, rng(3,  7)],   // NE mid
-    [-4, 4,  rng(3,  7)],   // SW mid
-    [0,  -4, rng(3,  7)],   // NW mid
-    [0,  4,  rng(3,  7)],   // SE mid
-    [3,  0,  rng(3,  6)],   // E road POI (first one player encounters)
-    [-3, 0,  rng(3,  6)],   // W road POI (near AI)
-  ].forEach(([q, r, s]) => {
-    const t = tiles.get(tkey(q, r));
-    if (t) { t.poi = true; t.stack = s; }
-  });
-
-  // Mark and reveal the road connecting both cities
+  // Mark and reveal the Glory Road (r=0)
   for (const k of ROAD_TILES) {
     const t = tiles.get(k);
     if (t) { t.road = true; t.revealed = true; }
   }
-  // Reveal one hex around each city so both feel like real starting areas
-  revealAround(-5, 0);
+  // POIs — three zones, none on road (r≠0)
+  // Player zone (q>3): weak stacks, close to home
+  const playerPOIs = [
+    [7, -2, rng(3, 6)], [7,  3, rng(3, 6)],
+    [5, -3, rng(4, 8)], [5,  4, rng(4, 8)],
+    [6,  2, rng(3, 7)],
+  ];
+  // Middle zone (|q|≤3): strong stacks, high reward
+  const middlePOIs = [
+    [ 0, -3, rng(10, 16)], [ 0,  3, rng(10, 16)],
+    [ 2, -4, rng( 8, 14)], [-2,  4, rng( 8, 14)],
+    [ 1,  2, rng( 8, 12)], [-1, -2, rng( 8, 12)],
+  ];
+  // Enemy zone (q<-3): medium stacks guarding the approach
+  const enemyPOIs = [
+    [-7,  2, rng(4, 9)], [-7, -3, rng(4, 9)],
+    [-5,  3, rng(4, 8)], [-5, -4, rng(4, 8)],
+    [-6, -2, rng(3, 7)],
+  ];
+  for (const [q, r, s] of [...playerPOIs, ...middlePOIs, ...enemyPOIs]) {
+    const t = tiles.get(tkey(q, r));
+    if (t && !t.road) { t.poi = true; t.stack = s; }
+  }
+  // Reveal starting area around player city (radius 2)
+  revealAround(PLAYER_CITY.q, PLAYER_CITY.r, 2);
 }
 
-function revealAround(q, r) {
-  const mark = (tq, tr) => { const t = tiles.get(tkey(tq, tr)); if (t) t.revealed = true; };
-  mark(q, r);
-  for (const [dq, dr] of DIRS) mark(q + dq, r + dr);
+function revealAround(q, r, radius = 1) {
+  const seen = new Set();
+  const stack = [[q, r, 0]];
+  while (stack.length) {
+    const [cq, cr, d] = stack.pop();
+    const k = tkey(cq, cr);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const t = tiles.get(k);
+    if (!t) continue;
+    t.revealed = true;
+    if (d < radius) {
+      for (const [dq, dr] of DIRS) stack.push([cq + dq, cr + dr, d + 1]);
+    }
+  }
 }
 
 // ── Game state ────────────────────────────────────────────────────────────
-const PLAYER_CITY = { q: 5, r: 0 };
-const ENEMY_CITY_LOCAL = { q: -5, r: 0 };
+const PLAYER_CITY = { q: 9, r: 0 };
+const ENEMY_CITY_LOCAL = { q: -9, r: 0 };
 let turn = 1, gold = 5, health = 10, enemyHealth = 10;
 let supply = 6;    // max hand size; enforced on draw
 let luck = 0;      // kingdom luck stat — each point adds 5% to all % abilities
 let townhallLevel = 0, cardsPerTurn = 3;
 let hotSpringTarget = null; // card id currently selected in hot spring UI
 let spellTier = 1;  // highest accessible spell tier (Academy raises it)
-let army = { q: 5, r: 0, movesLeft: 3 };
+let army = { q: 9, r: 0, movesLeft: 3 };
 let hand = [];         // [{ id, name, atk, def, dying }]
 let cardIdSeq = 0;
 let selected = false;
@@ -485,6 +495,7 @@ function computeReachable() {
     for (const [dq, dr] of DIRS) {
       const nq = q + dq, nr = r + dr, k = tkey(nq, nr);
       if (!tiles.has(k) || costs.has(k) || fireTiles.has(k)) continue;
+      if (INTERIOR_ROAD.has(k)) continue; // Glory Road is impassable
       costs.set(k, steps + 1);
       queue.push({ q: nq, r: nr, steps: steps + 1 });
     }
@@ -1555,6 +1566,8 @@ function renderHand() {
 function resize() {
   canvas.width = canvas.offsetWidth || 900;
   canvas.height = canvas.offsetHeight || 520;
+  // Fit 19-wide × 11-tall grid: x-span = SQ3*23, y-span = 15 (in SIZE units)
+  SIZE = Math.min((canvas.width - 40) / (SQ3 * 23), (canvas.height - 40) / 15);
 }
 
 function hexPath(cx, cy) {
@@ -1607,7 +1620,10 @@ function render() {
       continue;
     }
 
+    // Zone tinting: middle = danger tint, enemy = dark red tint
     let fill = '#12202e';
+    if (Math.abs(t.q) <= 3)  fill = '#1e1818';
+    if (t.q < -3)            fill = '#1a1215';
     if (t.poi)   fill = '#132613';
     if (isReach) fill = '#0e2e30';
     if (isFire)  fill = '#2a0e00';
@@ -1840,10 +1856,10 @@ function initMultiplayer() {
   gameId = params.get('game');
 
   if (gameId) {
-    // Joining as P2 — start at west arm
+    // Joining as P2 — start at west city
     myRole = 'p2';
-    army = { q: -5, r: 0, movesLeft: 3 };
-    revealAround(army.q, army.r);
+    army = { q: -9, r: 0, movesLeft: 3 };
+    revealAround(army.q, army.r, 2);
     render();
     log('Joined as Player 2. Waiting for Player 1 to start...');
   } else {
@@ -1934,7 +1950,6 @@ function showNextCombat() {
 window.addEventListener('resize', () => { resize(); render(); });
 resize();
 buildMap();
-revealAround(army.q, army.r);
 // Starting pool has Peasant; draw 4 to open hand
 unitPool.push(UNIT_DEFS.Peasant);
 for (let i = 0; i < 4; i++) hand.push(makeCard(UNIT_DEFS.Peasant));
