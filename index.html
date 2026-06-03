@@ -186,6 +186,9 @@ canvas { flex: 1; display: block; width: 100%; }
 #closebuild { margin-top: 12px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
 #buildbtn { background: #21262d; color: #c8c8c8; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
 #buildbtn:hover { background: #30363d; }
+#attackbtn { background: #21262d; color: #c06060; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
+#attackbtn:hover { background: #2a1010; }
+#attackbtn.active { background: #3a1010; border-color: #a03030; color: #ff9090; }
 #defendbtn { background: #21262d; color: #7090c0; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
 #defendbtn:hover { background: #161d28; }
 #defendbtn.active { background: #1a3a5a; border-color: #4070c0; color: #90c0f0; }
@@ -281,6 +284,7 @@ canvas { flex: 1; display: block; width: 100%; }
   <span>Supply <b id="sSupply">0/6</b></span>
   <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
   <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
+  <button id="attackbtn" onclick="enterWar()">Attack</button>
   <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
   <button id="glorybtn" onclick="openGlory()">Glory Shop</button>
   <button id="buildbtn" onclick="openBuild()">Build</button>
@@ -395,8 +399,10 @@ const DIRS = [[1,0],[-1,0],[1,-1],[-1,1],[0,-1],[0,1]];
 const tiles = new Map();
 const tkey = (q, r) => `${q},${r}`;
 
-// Road: the revealed corridor connecting both cities
+// Road: the revealed corridor connecting both cities — impassable for armies (symbolic only)
 const ROAD_TILES = new Set(['5,0','4,0','3,0','2,0','1,0','0,0','-1,0','-2,0','-3,0','-4,0','-5,0']);
+// Interior road tiles: road minus the two city endpoints — blocked in BFS
+const INTERIOR_ROAD = new Set([...ROAD_TILES].filter(k => k !== '5,0' && k !== '-5,0'));
 
 function rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
 // All % abilities use this so luck buffs apply uniformly
@@ -1298,12 +1304,15 @@ function resolveSpellTarget(q, r) {
 }
 
 function enterWar() {
+  if (phase !== 'playing') { log('Finish current action first.'); return; }
   if (gold < 1) { log('Need at least 1 gold to send a War Party.'); return; }
   phase = 'war';
   committed = new Set();
   selected = false;
   reachable = new Map();
   document.getElementById('warbar').classList.add('active');
+  document.getElementById('attackbtn').classList.add('active');
+  log('Select units to send in the War Party, then click Launch.');
   updateWarBar();
   renderHand();
   render();
@@ -1313,6 +1322,7 @@ function cancelWar() {
   phase = 'playing';
   committed = new Set();
   document.getElementById('warbar').classList.remove('active');
+  document.getElementById('attackbtn').classList.remove('active');
   log('War Party cancelled.');
   renderHand();
 }
@@ -1332,6 +1342,7 @@ function launchWarParty() {
   gold -= 1;
 
   document.getElementById('warbar').classList.remove('active');
+  document.getElementById('attackbtn').classList.remove('active');
   phase = 'playing';
   committed = new Set();
 
@@ -1724,9 +1735,6 @@ canvas.addEventListener('click', e => {
 
   // Toggle army selection
   if (q === army.q && r === army.r) {
-    // If on enemy city, re-open war UI
-    const ec = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
-    if (q === ec.q && r === ec.r && enemyHealth > 0) { enterWar(); return; }
     // If standing on an uncaptured POI, re-open capture instead of just selecting
     const here = tiles.get(k);
     if (here && here.poi && here.stack !== null) {
@@ -1750,14 +1758,9 @@ canvas.addEventListener('click', e => {
     reachable = computeReachable();
     if (army.movesLeft === 0) { selected = false; reachable = new Map(); }
     const t = tiles.get(k);
-    const ec2 = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
-    if (q === ec2.q && r === ec2.r) {
+    if (t.poi && t.stack !== null) {
       update(); render();
-      if (enemyHealth > 0) enterWar();
-      else log('The enemy kingdom has already fallen.');
-    } else if (t.poi && t.stack !== null) {
-      update(); render();
-      enterCapture(q, r); // auto-open capture UI
+      enterCapture(q, r);
     } else {
       log(`Moved to (${q},${r}). Moves left: ${army.movesLeft}.`);
       update(); render();
@@ -1911,7 +1914,7 @@ renderHand();
 if (!LOCAL_MODE) {
   initMultiplayer();
 } else {
-  log('4 Peasants in hand. Hold them for gold income, or build Barracks to add Warriors to your pool.');
+  log('Welcome! Click your army to explore the map. Use Attack to send a War Party. Build to grow your kingdom.');
 }
 </script>
 </body>
