@@ -51,26 +51,84 @@ canvas { flex: 1; display: block; width: 100%; }
 }
 #hand {
   display: flex;
-  gap: 6px;
-  padding: 6px 12px;
-  min-height: 74px;
+  align-items: flex-end;
+  padding: 10px 20px 0;
+  gap: 0;
   overflow-x: auto;
-  align-items: flex-start;
+  overflow-y: visible;
+  min-height: 140px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a3848 #0d1117;
 }
 .card {
-  border: 1px solid #30363d;
-  padding: 5px 8px;
-  background: #21262d;
-  min-width: 68px;
-  font-size: 11px;
-  border-radius: 3px;
+  width: 78px;
+  min-height: 112px;
+  border-radius: 7px;
+  border: 1.5px solid #3a4858;
+  background: linear-gradient(160deg, #1e2a3a 0%, #0c1520 100%);
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  position: relative;
+  cursor: default;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  transform-origin: bottom center;
+  margin-left: -12px;
+  user-select: none;
 }
-.card b { color: #79c0ff; display: block; margin-bottom: 3px; }
-.card span { color: #8b949e; }
-.card.committed { border-color: #f0c040; background: #2a2810; cursor: pointer; }
-.card.dying { opacity: 0.45; border-color: #803030; cursor: default; }
-.card.dying b { color: #a07070; }
+.card:first-child { margin-left: 0; }
+.card:not(.dying):hover {
+  transform: translateY(-18px) rotate(0deg) !important;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.8), 0 0 10px rgba(80,160,255,0.25);
+  border-color: #5a90c0;
+  z-index: 30;
+}
+.card.committed {
+  border-color: #f0c040;
+  box-shadow: 0 0 14px rgba(240,192,64,0.5);
+  transform: translateY(-12px) rotate(0deg) !important;
+  z-index: 20;
+}
+.card.defending {
+  border-color: #6090ff;
+  box-shadow: 0 0 12px rgba(96,144,255,0.4);
+  transform: translateY(-8px) !important;
+}
+.card.dying { opacity: 0.32; filter: grayscale(0.5); }
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 5px 2px;
+}
+.card-cost { font-size: 11px; color: #f0c040; font-weight: bold; }
+.card-tier { font-size: 9px; color: #3a4a58; }
+.card-art {
+  height: 36px; margin: 0 4px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.card-art.physical { background: linear-gradient(135deg,#3a1008,#7a2810); }
+.card-art.magic    { background: linear-gradient(135deg,#180830,#3a1880); }
+.card-art.utility  { background: linear-gradient(135deg,#0a200a,#1a4a1a); }
+.card-name {
+  font-size: 10px; font-weight: bold; color: #c0d0e0;
+  padding: 3px 5px 1px; text-align: center; line-height: 1.2;
+}
+.card-stats {
+  display: flex; justify-content: center; gap: 7px;
+  padding: 2px 4px; font-size: 10px; font-weight: bold;
+}
+.card-stats .atk { color: #ff7050; }
+.card-stats .def { color: #5090e0; }
+.card-tags {
+  font-size: 8px; color: #2e3e50; text-align: center;
+  padding: 1px 4px 4px; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-upbadge {
+  font-size: 8px; color: #80e080; text-align: center;
+  padding: 0 4px 3px;
+}
 #capturebar {
   display: none;
   align-items: center;
@@ -190,13 +248,60 @@ canvas { flex: 1; display: block; width: 100%; }
 #townheader .townstats { font-size: 12px; color: #8b949e; display: flex; gap: 16px; }
 #townheader .townstats b { color: #f0c040; }
 #townbuildscroll {
-  flex: 1; overflow-x: auto; overflow-y: hidden;
-  padding: 10px 14px 12px; display: flex; align-items: flex-start; gap: 9px;
+  flex: 1; overflow: auto;
+  padding: 12px 18px 14px;
+  display: flex;
+  gap: 0;
   scrollbar-width: thin; scrollbar-color: #2a3848 #0d1117;
 }
-/* building cards keep .bcard styles; small tweaks for horizontal layout */
+.skill-branch {
+  flex: 1; display: flex; flex-direction: column;
+  border-right: 1px solid #1c2838;
+  padding: 0 14px;
+  min-width: 0;
+}
+.skill-branch:last-child { border-right: none; }
+.skill-branch-title {
+  font-size: 11px; font-weight: bold; color: #6a8aaa;
+  letter-spacing: 1px; text-transform: uppercase;
+  margin-bottom: 10px; text-align: center;
+}
+.skill-node {
+  border: 1.5px solid #1e2e3e;
+  border-radius: 5px;
+  background: #0c1420;
+  padding: 7px 9px;
+  margin-bottom: 4px;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  position: relative;
+}
+.skill-node.sn-built {
+  border-color: #2ea060;
+  background: #0a1c10;
+}
+.skill-node.sn-available {
+  border-color: #2a4860;
+  cursor: pointer;
+}
+.skill-node.sn-available:hover {
+  border-color: #4a90c0;
+  box-shadow: 0 0 10px rgba(60,140,200,0.3);
+  background: #0e1e2e;
+}
+.skill-node.sn-locked { opacity: 0.35; }
+.skill-node-icon { font-size: 18px; float: left; margin-right: 7px; line-height: 1; }
+.skill-node-name { font-size: 11px; font-weight: bold; color: #a0b8d0; margin-bottom: 2px; }
+.skill-node-desc { font-size: 10px; color: #4a6070; line-height: 1.3; clear: both; }
+.skill-node-cost { font-size: 10px; color: #f0c040; margin-top: 4px; }
+.skill-node-status { font-size: 10px; color: #40a060; margin-top: 4px; }
+.skill-node-locked-label { font-size: 10px; color: #5a3030; margin-top: 4px; }
+.skill-connector {
+  width: 2px; height: 12px;
+  background: linear-gradient(to bottom, #2a4060, #1a3050);
+  margin: 0 auto 4px;
+}
+.skill-node-actions { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
 #townbuildscroll .bcard { flex: 0 0 170px; min-height: 110px; }
-#townbuildscroll .bcard.built { opacity: 0.7; }
 #closetown {
   background: transparent; color: #8b949e; border: 1px solid #2a3848;
   padding: 4px 16px; cursor: pointer; font-family: monospace; font-size: 12px;
@@ -915,6 +1020,7 @@ const BUILDING_DEFS = [
   // ── Tier 2 ───────────────────────────────────────────────────────────────
   {
     type: 'building', tier: 2, id: 'bank', name: 'Bank', cost: 6,
+    requires: 'marketplace',
     desc: '+3 gold income per turn.',
     onBuild: () => { goldIncome += 3; },
   },
@@ -935,11 +1041,13 @@ const BUILDING_DEFS = [
   },
   {
     type: 'building', tier: 2, id: 'garrison', name: 'Garrison', cost: 6,
+    requires: 'barracks',
     desc: 'Adds Shieldbearer and Berserker (T2) to Townhall pool.',
     onBuild: () => { unitPool.push(UNIT_DEFS.Shieldbearer); unitPool.push(UNIT_DEFS.Berserker); },
   },
   {
     type: 'building', tier: 2, id: 'lodge', name: 'Lodge', cost: 6,
+    requires: 'hut',
     desc: '+2 supply cap.',
     onBuild: () => { supply += 2; },
   },
@@ -1215,68 +1323,133 @@ function drawTownScene(tc) {
 function renderTownBuildings() {
   const scroll = document.getElementById('townbuildscroll');
   scroll.innerHTML = '';
+
   const ICONS = {
-    barracks: '⚔', archery: '🏹', thieves: '🗡', marketplace: '💰',
-    training: '💪', school: '📜', hut: '🏚', bank: '💎',
-    hotspring: '♨', academy: '🔮', garrison: '🛡', lodge: '🏕',
+    barracks:'⚔', archery:'🏹', thieves:'🗡', marketplace:'💰',
+    training:'💪', school:'📜', hut:'🏚', bank:'💎',
+    hotspring:'♨', academy:'🔮', garrison:'🛡', lodge:'🏕',
   };
 
-  // Townhall (always first)
-  const thCost = 6;
-  const thDiv = document.createElement('div');
-  thDiv.className = 'bcard built';
-  thDiv.innerHTML = `<h3>🏰 Townhall <small style="color:#484f58">lv${townhallLevel}</small></h3>
-    <p>Draws ${cardsPerTurn} cards/turn. Upgrade for +1 card.</p>
-    <div class="cost">${thCost} gold</div>
-    <button class="bbtn" onclick="openTownhallUp()" ${gold < thCost ? 'disabled' : ''}>Upgrade</button>`;
-  scroll.appendChild(thDiv);
+  // Refresh header stats
+  document.getElementById('tGold').textContent   = gold;
+  document.getElementById('tMana').textContent   = mana;
+  document.getElementById('tSupply').textContent = `${hand.filter(c=>!c.dying).length}/${supply}`;
 
-  for (const b of BUILDING_DEFS) {
-    const built   = buildings.has(b.id);
-    const blocked = b.requires && !buildings.has(b.requires);
-    const canAfford = gold >= b.cost && !blocked;
-    const icon = ICONS[b.id] || '🏗';
-    const div  = document.createElement('div');
-    div.className = 'bcard' + (built ? ' built' : '');
-    const tierLabel = b.tier === 2 ? ' <small style="color:#7060a0">[T2]</small>' : '';
-    let html = `<h3>${icon} ${b.name}${tierLabel}</h3><p>${b.desc}</p>`;
-    if (blocked) {
-      html += `<div class="cost" style="color:#604040">Needs ${b.requires}</div>`;
-    } else if (!built) {
-      html += `<div class="cost">${b.cost} gold</div>
-        <button class="bbtn" onclick="buildBuilding('${b.id}')" ${!canAfford ? 'disabled' : ''}>Build</button>`;
-    } else {
-      html += `<div class="cost" style="color:#484f58">Built ✓</div>`;
-    }
-    if (b.id === 'training' && built) {
-      const trainableUnits = Object.values(UNIT_DEFS).filter(u => unitPool.some(p => p.name === u.name));
-      if (trainableUnits.length) {
-        html += '<div class="upgrades">';
-        for (const u of trainableUnits) {
-          for (const stat of ['atk', 'def']) {
+  function makeConnector() {
+    const c = document.createElement('div');
+    c.className = 'skill-connector';
+    return c;
+  }
+
+  // Three branches
+  const branches = [
+    {
+      title: '⚔ Military',
+      nodes: [
+        { id:'barracks',  name:'Barracks',      cost:4, desc:'Adds Warrior to pool.' },
+        { id:'archery',   name:'Archery Range',  cost:4, desc:'Adds Archer to pool.' },
+        { id:'thieves',   name:'Thieves Guild',  cost:4, desc:'Adds Assassin to pool.' },
+        null, // separator
+        { id:'garrison',  name:'Garrison',       cost:6, desc:'Adds Shieldbearer & Berserker.', requires:'barracks', tier:2 },
+      ],
+    },
+    {
+      title: '💰 Economy',
+      nodes: [
+        { id:'marketplace', name:'Marketplace', cost:4, desc:'+2 gold income/turn.' },
+        { id:'hut',         name:'Hut',         cost:4, desc:'+1 supply cap.' },
+        null,
+        { id:'bank',  name:'Bank',  cost:6, desc:'+3 gold income/turn.', requires:'marketplace', tier:2 },
+        { id:'lodge', name:'Lodge', cost:6, desc:'+2 supply cap.',        requires:'hut',         tier:2 },
+        null,
+        { id:'hotspring', name:'Hot Spring', cost:6, desc:'Permanently boost a unit stat.', tier:2 },
+      ],
+    },
+    {
+      title: '📖 Knowledge',
+      nodes: [
+        { id:'school',   name:'School',          cost:4, desc:'Unlocks mana, Apprentice & T1 spells.' },
+        { id:'training', name:'Training Ground', cost:4, desc:'Upgrade unit stats permanently.' },
+        null,
+        { id:'academy',  name:'Academy', cost:6, desc:'Unlocks Mage & Priest. +1 spell tier.', requires:'school', tier:2 },
+        null,
+        { id:'townhall', name:'Townhall', icon:'🏰', cost:6, desc:`Draws ${cardsPerTurn} cards/turn.`,
+          builtOverride: true, actionHtml: `<div class="skill-node-actions"><button class="ubtn" onclick="openTownhallUp()" ${gold<6?'disabled':''}>Upgrade (6g)</button></div>` },
+      ],
+    },
+  ];
+
+  for (const branch of branches) {
+    const col = document.createElement('div');
+    col.className = 'skill-branch';
+
+    const title = document.createElement('div');
+    title.className = 'skill-branch-title';
+    title.textContent = branch.title;
+    col.appendChild(title);
+
+    let prevWasNode = false;
+    for (const b of branch.nodes) {
+      if (!b) { prevWasNode = false; continue; }
+      if (prevWasNode) col.appendChild(makeConnector());
+
+      // Resolve against BUILDING_DEFS for onBuild logic, use branch data for display
+      const builtState = b.builtOverride || buildings.has(b.id);
+      const blocked = b.requires && !buildings.has(b.requires);
+      const canAfford = !builtState && !blocked && gold >= b.cost;
+      const state = builtState ? 'sn-built' : blocked ? 'sn-locked' : 'sn-available';
+
+      const node = document.createElement('div');
+      node.className = `skill-node ${state}`;
+      const icon = b.icon || ICONS[b.id] || '🏗';
+      const tierBadge = b.tier === 2 ? ' <span style="font-size:9px;color:#6050a0">[T2]</span>' : '';
+
+      let html = `<div class="skill-node-icon">${icon}</div>
+        <div class="skill-node-name">${b.name}${tierBadge}</div>
+        <div class="skill-node-desc">${b.desc}</div>`;
+
+      if (builtState) {
+        html += `<div class="skill-node-status">✓ Built</div>`;
+        if (b.actionHtml) html += b.actionHtml;
+      } else if (blocked) {
+        const reqDef = BUILDING_DEFS.find(x => x.id === b.requires);
+        html += `<div class="skill-node-locked-label">🔒 ${reqDef ? reqDef.name : b.requires}</div>`;
+      } else {
+        html += `<div class="skill-node-cost">${b.cost}g</div>`;
+        if (canAfford) {
+          node.style.cursor = 'pointer';
+          node.onclick = ((_id) => () => buildBuilding(_id))(b.id);
+        }
+      }
+
+      // Special built actions
+      if (b.id === 'training' && builtState) {
+        const trainable = Object.values(UNIT_DEFS).filter(u => unitPool.some(p => p.name === u.name));
+        if (trainable.length) {
+          html += '<div class="skill-node-actions">';
+          for (const u of trainable) for (const stat of ['atk','def']) {
             const lvl = trainingLevels[`${u.name}-${stat}`] || 0;
             const cost = 1 + lvl;
-            html += `<div class="urow"><span>${u.name} +${stat.toUpperCase()} (lv${lvl})</span>
-              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')" ${gold < cost ? 'disabled' : ''}>${cost}g</button></div>`;
+            html += `<div class="urow"><span>${u.name} +${stat.toUpperCase()} lv${lvl}</span>
+              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')" ${gold<cost?'disabled':''}>${cost}g</button></div>`;
           }
+          html += '</div>';
         }
-        html += '</div>';
       }
+      if (b.id === 'hotspring' && builtState) {
+        const hasUnits = hand.some(c => !c.dying);
+        html += `<div class="skill-node-actions"><button class="ubtn" onclick="closeTown();openHotSpring()" ${!hasUnits?'disabled':''}>Use Hot Spring</button></div>`;
+      }
+      if (b.id === 'academy' && builtState) {
+        html += `<div style="font-size:10px;color:#3a4a5a;margin-top:4px">Spell research coming soon</div>`;
+      }
+
+      node.innerHTML = html;
+      col.appendChild(node);
+      prevWasNode = true;
     }
-    if (b.id === 'hotspring' && built) {
-      const hasUnits = hand.some(c => !c.dying);
-      html += `<div class="upgrades"><button class="ubtn" onclick="closeTown();openHotSpring()" ${!hasUnits ? 'disabled' : ''}>Use Hot Spring</button></div>`;
-    }
-    if (b.id === 'academy' && built) {
-      html += `<div class="upgrades" style="font-size:11px;color:#484f58">Spell research: T2 spells coming soon.</div>`;
-    }
-    div.innerHTML = html;
-    scroll.appendChild(div);
+    scroll.appendChild(col);
   }
-  // Refresh stats in header
-  document.getElementById('tGold').textContent = gold;
-  document.getElementById('tMana').textContent = mana;
-  document.getElementById('tSupply').textContent = `${hand.filter(c => !c.dying).length}/${supply}`;
 }
 
 function openTown() {
@@ -1997,24 +2170,68 @@ function update() {
 function renderHand() {
   const el = document.getElementById('hand');
   el.innerHTML = '';
-  if (!hand.length) { el.textContent = 'Hand empty.'; return; }
-  for (const c of hand) {
-    const div = document.createElement('div');
+  if (!hand.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:#3a4a58;font-size:11px;padding:8px;align-self:center';
+    empty.textContent = 'No cards in hand.';
+    el.appendChild(empty);
+    return;
+  }
+  const ART_EMOJI = {
+    Peasant:'👨‍🌾', Warrior:'⚔', Archer:'🏹', Assassin:'🗡', Apprentice:'📖',
+    Shieldbearer:'🛡', Berserker:'🔱', Mage:'🔮', Priest:'✝', Knight:'🏇',
+  };
+  const total = hand.length;
+  for (let i = 0; i < total; i++) {
+    const c = hand[i];
     const isCommitted = committed.has(c.id);
     const isDefending = defenders.has(c.id);
+    const inRaise     = raiseSet.has(c.id);
+
     let cls = 'card';
-    if (c.dying) cls += ' dying';
-    else if (isCommitted) cls += ' committed';
-    else if (isDefending) cls += ' defending';
+    if (c.dying)                      cls += ' dying';
+    else if (phase === 'raising' && inRaise) cls += ' committed';
+    else if (isCommitted)             cls += ' committed';
+    else if (isDefending)             cls += ' defending';
+
+    const div = document.createElement('div');
     div.className = cls;
-    const bonus = (c.tAtk + c.gAtk > 0 ? ' ↑' : '') + (c.tDef + c.gDef > 0 ? ' ↑' : '');
-    div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b>` +
-      `<span style="color:#484f58;font-size:10px">T${c.tier} · ${c.cost}g</span>` +
-      `<span>ATK ${c.atk}  DEF ${c.def}${bonus}</span>` +
-      `<span style="color:#3a4a5a;font-size:10px">${c.tags.join(' · ')}</span>`;
-    div.className = cls;
+
+    // Fan rotation
+    if (!c.dying) {
+      const spread = Math.min(3.5, total * 0.5);
+      const angle  = total > 1 ? ((i / (total - 1)) - 0.5) * spread * 2 : 0;
+      const yOff   = total > 1 ? Math.abs((i / (total - 1)) - 0.5) * 10 : 0;
+      div.style.transform = `rotate(${angle}deg) translateY(${yOff}px)`;
+    }
+
+    // Art section
+    const artType  = c.tags.includes('Magic') ? 'magic' : c.tags.includes('Physical') ? 'physical' : 'utility';
+    const artEmoji = ART_EMOJI[c.name] || '?';
+    const upAtk = c.tAtk + c.gAtk, upDef = c.tDef + c.gDef;
+    const upBadge = (upAtk > 0 || upDef > 0)
+      ? `<div class="card-upbadge">${upAtk > 0 ? `⚔+${upAtk}` : ''}${upDef > 0 ? ` 🛡+${upDef}` : ''}</div>`
+      : '';
+    const dyingMark = c.dying ? '<span style="color:#ff4040;font-size:9px;position:absolute;top:3px;right:5px">†</span>' : '';
+
+    div.innerHTML = `
+      ${dyingMark}
+      <div class="card-top">
+        <span class="card-cost">${c.cost}g</span>
+        <span class="card-tier">T${c.tier}</span>
+      </div>
+      <div class="card-art ${artType}">${artEmoji}</div>
+      <div class="card-name">${c.name}</div>
+      <div class="card-stats">
+        <span class="atk">⚔${c.atk}</span>
+        <span class="def">🛡${c.def}</span>
+      </div>
+      <div class="card-tags">${c.tags.slice(0, 2).join('·')}</div>
+      ${upBadge}
+    `;
+
+    // Click handlers
     if (phase === 'raising' && !c.dying) {
-      div.className = 'card' + (raiseSet.has(c.id) ? ' committed' : '');
       div.style.cursor = 'pointer';
       div.onclick = () => {
         if (raiseSet.has(c.id)) raiseSet.delete(c.id);
@@ -2039,6 +2256,7 @@ function renderHand() {
         renderHand();
       };
     }
+
     el.appendChild(div);
   }
 }
