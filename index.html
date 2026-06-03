@@ -222,6 +222,10 @@ canvas { flex: 1; display: block; width: 100%; }
 .spellbtn:disabled { background: #0d0d20; color: #484f58; cursor: default; border-color: #2a2040; }
 .spellbtn:hover:not(:disabled) { background: #251558; }
 .spellbtn.active { border-color: #a080ff; background: #2a1870; }
+#hotspringoverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); display: flex; align-items: center; justify-content: center; z-index: 150; }
+#hotspringoverlay.hidden { display: none; }
+#townhallupoverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); display: flex; align-items: center; justify-content: center; z-index: 150; }
+#townhallupoverlay.hidden { display: none; }
 #gameoveroverlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.88);
@@ -274,6 +278,7 @@ canvas { flex: 1; display: block; width: 100%; }
   <span>Gold <b id="sGold">5</b></span>
   <span>Health <b id="sHealth">10</b></span>
   <span>Moves <b id="sMoves">3</b></span>
+  <span>Supply <b id="sSupply">0/6</b></span>
   <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
   <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
   <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
@@ -294,6 +299,30 @@ canvas { flex: 1; display: block; width: 100%; }
     <div class="subtitle">City-wide upgrades — all units benefit immediately</div>
     <div id="glorylist"></div>
     <button id="closeglory" onclick="closeGlory()">Close</button>
+  </div>
+</div>
+<div id="hotspringoverlay" class="hidden">
+  <div style="background:#161b22;border:1px solid #306050;border-radius:6px;padding:18px 22px;width:min(480px,92vw);max-height:80vh;overflow-y:auto">
+    <h2 style="font-size:13px;color:#70d0b0;margin-bottom:8px">♨ Hot Spring — Select a unit to soak</h2>
+    <p style="font-size:11px;color:#8b949e;margin-bottom:10px">Permanently boosts one unit. Choose a card then pick the buff.</p>
+    <div id="hotspringhand" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <div id="hotspringchoice" style="display:none;gap:8px;flex-direction:column;margin-bottom:10px">
+      <button class="bbtn" onclick="applyHotSpring('atk')" style="background:#3a1a0a;border-color:#a05020;color:#ffb060">⚔ +2 ATK / −1 DEF</button>
+      <button class="bbtn" onclick="applyHotSpring('def')" style="background:#0a1a3a;border-color:#204080;color:#60b0ff">🛡 +2 DEF / −1 ATK</button>
+    </div>
+    <button onclick="closeHotSpring()" style="background:transparent;color:#8b949e;border:1px solid #30363d;padding:4px 14px;cursor:pointer;font-family:monospace;font-size:12px">Cancel</button>
+  </div>
+</div>
+<div id="townhallupoverlay" class="hidden">
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:18px 22px;width:min(380px,92vw)">
+    <h2 style="font-size:13px;color:#c8c8c8;margin-bottom:8px">Townhall Upgrade</h2>
+    <p style="font-size:11px;color:#8b949e;margin-bottom:10px">+1 card drawn per turn. Choose one bonus:</p>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+      <button class="bbtn" onclick="chooseTownhallBonus('gold')">+2 Gold income/turn</button>
+      <button class="bbtn" onclick="chooseTownhallBonus('mana')">+2 Mana income/turn</button>
+      <button class="bbtn" onclick="chooseTownhallBonus('supply')">+3 Supply cap</button>
+    </div>
+    <button onclick="closeTownhallUp()" style="background:transparent;color:#8b949e;border:1px solid #30363d;padding:4px 14px;cursor:pointer;font-family:monospace;font-size:12px">Cancel</button>
   </div>
 </div>
 <div id="sharebar" style="display:none;background:#0d2010;border-bottom:1px solid #204030;padding:4px 14px;font-size:12px;color:#70c090">
@@ -370,6 +399,8 @@ const tkey = (q, r) => `${q},${r}`;
 const ROAD_TILES = new Set(['5,0','4,0','3,0','2,0','1,0','0,0','-1,0','-2,0','-3,0','-4,0','-5,0']);
 
 function rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+// All % abilities use this so luck buffs apply uniformly
+function effectiveChance(base) { return Math.min(1, base + luck * 0.05); }
 
 function buildMap() {
   // Center cluster: radius 2
@@ -420,6 +451,11 @@ function revealAround(q, r) {
 
 // ── Game state ────────────────────────────────────────────────────────────
 let turn = 1, gold = 5, health = 10, enemyHealth = 10;
+let supply = 6;    // max hand size; enforced on draw
+let luck = 0;      // kingdom luck stat — each point adds 5% to all % abilities
+let townhallLevel = 0, cardsPerTurn = 3;
+let hotSpringTarget = null; // card id currently selected in hot spring UI
+let spellTier = 1;  // highest accessible spell tier (Academy raises it)
 let army = { q: 5, r: 0, movesLeft: 3 };
 let hand = [];         // [{ id, name, atk, def, dying }]
 let cardIdSeq = 0;
@@ -451,6 +487,18 @@ function computeReachable() {
 
 // ── Units & Buildings ─────────────────────────────────────────────────────
 const UNIT_DEFS = {
+  Peasant: {
+    type: 'unit', tier: 0, name: 'Peasant', cost: 0, atk: 1, def: 1,
+    tags: ['Human', 'Melee', 'Physical'],
+    // Fires once per turn (deduped by unit type in advanceTurn)
+    turnEnd: () => {
+      const count = hand.filter(c => !c.dying && c.name === 'Peasant').length;
+      if (!count) return null;
+      const bonus = count >= 6 ? 4 : count >= 4 ? 3 : count >= 2 ? 2 : 1;
+      gold += bonus;
+      return `${count} idle Peasant${count > 1 ? 's' : ''} → +${bonus} gold`;
+    },
+  },
   Warrior:    { type: 'unit', tier: 1, name: 'Warrior',    cost: 1, atk: 2, def: 2, tags: ['Human', 'Melee', 'Physical'] },
   Archer: {
     type: 'unit', tier: 1, name: 'Archer', cost: 1, atk: 2, def: 1,
@@ -477,14 +525,14 @@ const UNIT_DEFS = {
     type: 'unit', tier: 1, name: 'Apprentice', cost: 2, atk: 2, def: 1,
     tags: ['Human', 'Range', 'Magic', 'Projectile'],
     combat: ({ self, cbt }) => {
-      if (Math.random() < 0.1) {
+      if (Math.random() < effectiveChance(0.1)) {
         const effects = ['Burn', 'Slow', 'Blessing', 'Protection', 'Resurrection'];
         cbt.lines.push(cbt.tag('hit', `  ${self.name} procs ${effects[rng(0, 4)]}! (effect pending)`));
       }
     },
   },
   Shieldbearer: {
-    type: 'unit', tier: 2, name: 'Shieldbearer', cost: 2, atk: 0, def: 3,
+    type: 'unit', tier: 2, name: 'Shieldbearer', cost: 2, atk: 1, def: 3,
     tags: ['Human', 'Melee', 'Physical'],
     passive: ({ self, allies, idx, lines, tag }) => {
       const buffed = [];
@@ -492,11 +540,71 @@ const UNIT_DEFS = {
       if (idx < allies.length - 1) { allies[idx + 1].def += 1; buffed.push(allies[idx + 1].name); }
       if (buffed.length) lines.push(tag('dim', `  ${self.name}: +1 DEF to ${buffed.join(', ')}`));
     },
+    // Absorbs up to 3 total incoming Projectile debuf (shared across self + neighbors)
+    counterSkirmish: ({ self, cbt }) => {
+      if (cbt.defDebuf <= 0) return;
+      const absorbed = Math.min(3, cbt.defDebuf);
+      cbt.defDebuf -= absorbed;
+      cbt.lines.push(cbt.tag('dim', `  ${self.name} blocks ${absorbed} arrow damage`));
+    },
+  },
+  Berserker: {
+    type: 'unit', tier: 2, name: 'Berserker', cost: 2, atk: 3, def: 0,
+    tags: ['Human', 'Melee', 'Physical'],
+    passive: ({ self, allies, idx, lines, tag }) => {
+      const buffed = [];
+      for (const offset of [-1, 1]) {
+        const n = allies[idx + offset];
+        if (!n) continue;
+        n.atk += 1;
+        if (n.tags?.includes('Melee')) { n.atk += 1; buffed.push(`${n.name}(+2 ATK)`); }
+        else buffed.push(`${n.name}(+1 ATK)`);
+      }
+      if (buffed.length) lines.push(tag('dim', `  ${self.name}: ${buffed.join(', ')}`));
+    },
+    aftermath: ({ self, won, lines, tag }) => {
+      if (!won) return;
+      const chance = effectiveChance(0.5);
+      if (Math.random() < chance) {
+        self.dying = false;
+        lines.push(tag('win', `  ${self.name} survives the battle! (${Math.round(chance * 100)}% roll passed)`));
+      }
+    },
+  },
+  Mage: {
+    type: 'unit', tier: 2, name: 'Mage', cost: 3, atk: 3, def: 2,
+    tags: ['Human', 'Range', 'Magic', 'Projectile'],
+    combat: ({ self, cbt }) => {
+      const effects = ['Burn', 'Slow', 'Blessing', 'Protection', 'Resurrection'];
+      for (let i = 0; i < 2; i++) {
+        if (Math.random() < effectiveChance(0.2)) {
+          cbt.lines.push(cbt.tag('hit', `  ${self.name} procs ${effects[rng(0, 4)]}! (effect pending)`));
+        }
+      }
+    },
+  },
+  Priest: {
+    type: 'unit', tier: 2, name: 'Priest', cost: 3, atk: 1, def: 1,
+    tags: ['Human', 'Range', 'Magic'],
+    aftermath: ({ self, allies, won, lines, tag }) => {
+      if (!won) return;
+      const bonusStats = (self.atk - self.baseAtk) + (self.def - self.baseDef);
+      let chance = effectiveChance(Math.min(1, 1.0 + bonusStats * 0.05));
+      const dead = allies.filter(c => c.dying);
+      if (!dead.length) return;
+      lines.push(tag('dim', '── Aftermath (Priest) ──────────'));
+      while (dead.length > 0 && Math.random() < chance) {
+        const saved = dead.splice(rng(0, dead.length - 1), 1)[0];
+        saved.dying = false;
+        lines.push(tag('win', `  Priest saves ${saved.name}! (${Math.round(chance * 100)}% roll)`));
+        chance /= 2;
+      }
+    },
   },
   Knight: {
     type: 'unit', tier: 2, name: 'Knight', cost: 3, atk: 2, def: 3,
     tags: ['Human', 'Melee', 'Physical', 'Mounted'],
-    antiProjectile: true, // halves incoming Projectile skirmish debuf after all archers fire
+    antiProjectile: true,
   },
 };
 
@@ -571,40 +679,42 @@ function makeCard(def) {
 function drawCards(n) {
   if (!unitPool.length) return;
   for (let i = 0; i < n; i++) {
+    if (hand.filter(c => !c.dying).length >= supply) break;
     hand.push(makeCard(unitPool[rng(0, unitPool.length - 1)]));
   }
 }
 
 // ── Building definitions ───────────────────────────────────────────────────
 const BUILDING_DEFS = [
+  // ── Tier 1 ───────────────────────────────────────────────────────────────
   {
-    type: 'building', id: 'barracks', name: 'Barracks', cost: 4,
+    type: 'building', tier: 1, id: 'barracks', name: 'Barracks', cost: 4,
     desc: 'Adds Warrior to Townhall pool.',
     onBuild: () => unitPool.push(UNIT_DEFS.Warrior),
   },
   {
-    type: 'building', id: 'archery', name: 'Archery Range', cost: 4,
+    type: 'building', tier: 1, id: 'archery', name: 'Archery Range', cost: 4,
     desc: 'Adds Archer to Townhall pool.',
     onBuild: () => unitPool.push(UNIT_DEFS.Archer),
   },
   {
-    type: 'building', id: 'thieves', name: 'Thieves Guild', cost: 4,
+    type: 'building', tier: 1, id: 'thieves', name: 'Thieves Guild', cost: 4,
     desc: 'Adds Assassin to Townhall pool.',
     onBuild: () => unitPool.push(UNIT_DEFS.Assassin),
   },
   {
-    type: 'building', id: 'marketplace', name: 'Marketplace', cost: 4,
+    type: 'building', tier: 1, id: 'marketplace', name: 'Marketplace', cost: 4,
     desc: '+2 gold income per turn.',
     onBuild: () => { goldIncome += 2; },
   },
   {
-    type: 'building', id: 'training', name: 'Training Ground', cost: 4,
-    desc: 'Upgrade unit stats permanently (gold cost scales with upgrades).',
+    type: 'building', tier: 1, id: 'training', name: 'Training Ground', cost: 4,
+    desc: 'Upgrade unit stats permanently (cost scales with upgrades).',
     onBuild: () => {},
   },
   {
-    type: 'building', id: 'school', name: 'School', cost: 4,
-    desc: 'Adds Apprentice to pool. Unlocks Mana (+2/turn). Grants 3 random Tier 1 spells.',
+    type: 'building', tier: 1, id: 'school', name: 'School', cost: 4,
+    desc: 'Adds Apprentice to pool. Unlocks Mana (+2/turn). Grants 3 random T1 spells.',
     onBuild: () => {
       unitPool.push(UNIT_DEFS.Apprentice);
       manaIncome += 2; mana += 2;
@@ -613,14 +723,40 @@ const BUILDING_DEFS = [
     },
   },
   {
-    type: 'building', id: 'garrison', name: 'Garrison', cost: 6,
-    desc: 'Adds Shieldbearer (T2) to Townhall pool.',
-    onBuild: () => unitPool.push(UNIT_DEFS.Shieldbearer),
+    type: 'building', tier: 1, id: 'hut', name: 'Hut', cost: 4,
+    desc: '+1 supply cap.',
+    onBuild: () => { supply += 1; },
+  },
+  // ── Tier 2 ───────────────────────────────────────────────────────────────
+  {
+    type: 'building', tier: 2, id: 'bank', name: 'Bank', cost: 6,
+    desc: '+3 gold income per turn.',
+    onBuild: () => { goldIncome += 3; },
   },
   {
-    type: 'building', id: 'stables', name: 'Stables', cost: 6,
-    desc: 'Adds Knight (T2) to Townhall pool.',
-    onBuild: () => unitPool.push(UNIT_DEFS.Knight),
+    type: 'building', tier: 2, id: 'hotspring', name: 'Hot Spring', cost: 6,
+    desc: 'Permanently boost a unit: +2 ATK/−1 DEF or +2 DEF/−1 ATK. Select a unit each visit.',
+    onBuild: () => {},
+  },
+  {
+    type: 'building', tier: 2, id: 'academy', name: 'Academy', cost: 6,
+    requires: 'school',
+    desc: 'Requires School. Unlocks Mage & Priest. +1 spell tier. Allows spell research.',
+    onBuild: () => {
+      unitPool.push(UNIT_DEFS.Mage);
+      unitPool.push(UNIT_DEFS.Priest);
+      spellTier++;
+    },
+  },
+  {
+    type: 'building', tier: 2, id: 'garrison', name: 'Garrison', cost: 6,
+    desc: 'Adds Shieldbearer and Berserker (T2) to Townhall pool.',
+    onBuild: () => { unitPool.push(UNIT_DEFS.Shieldbearer); unitPool.push(UNIT_DEFS.Berserker); },
+  },
+  {
+    type: 'building', tier: 2, id: 'lodge', name: 'Lodge', cost: 6,
+    desc: '+2 supply cap.',
+    onBuild: () => { supply += 2; },
   },
 ];
 
@@ -648,6 +784,62 @@ function trainUnit(unitName, stat) {
   update();
   renderBuildPanel();
   renderHand();
+}
+
+function openTownhallUp() {
+  closeBuild();
+  document.getElementById('townhallupoverlay').classList.remove('hidden');
+}
+function closeTownhallUp() {
+  document.getElementById('townhallupoverlay').classList.add('hidden');
+}
+function chooseTownhallBonus(bonus) {
+  if (gold < 6) return;
+  gold -= 6;
+  townhallLevel++;
+  cardsPerTurn++;
+  if (bonus === 'gold') { goldIncome += 2; log(`Townhall upgraded! +1 card/turn, +2 gold income.`); }
+  else if (bonus === 'mana') { manaIncome += 2; mana += 2; log(`Townhall upgraded! +1 card/turn, +2 mana income.`); }
+  else { supply += 3; log(`Townhall upgraded! +1 card/turn, +3 supply.`); }
+  closeTownhallUp();
+  update();
+  renderHand();
+}
+
+function openHotSpring() {
+  hotSpringTarget = null;
+  const panel = document.getElementById('hotspringhand');
+  const choice = document.getElementById('hotspringchoice');
+  choice.style.display = 'none';
+  const units = hand.filter(c => !c.dying);
+  panel.innerHTML = units.map(c =>
+    `<div class="card" id="hs_${c.id}" onclick="selectHotSpringUnit(${c.id})" style="cursor:pointer">
+      <b>${c.name}</b>
+      <span>ATK ${c.atk} / DEF ${c.def}</span>
+    </div>`
+  ).join('');
+  document.getElementById('hotspringoverlay').classList.remove('hidden');
+}
+function selectHotSpringUnit(id) {
+  hotSpringTarget = id;
+  document.querySelectorAll('#hotspringhand .card').forEach(el => el.style.borderColor = '');
+  const el = document.getElementById(`hs_${id}`);
+  if (el) el.style.borderColor = '#70d0b0';
+  document.getElementById('hotspringchoice').style.display = 'flex';
+}
+function applyHotSpring(type) {
+  const c = hand.find(c => c.id === hotSpringTarget);
+  if (!c) return;
+  if (type === 'atk') { c.baseAtk += 2; c.baseDef -= 1; }
+  else                { c.baseDef += 2; c.baseAtk -= 1; }
+  recompute(c);
+  log(`Hot Spring: ${c.name} → ATK ${c.atk} / DEF ${c.def}`);
+  closeHotSpring();
+  renderHand();
+}
+function closeHotSpring() {
+  hotSpringTarget = null;
+  document.getElementById('hotspringoverlay').classList.add('hidden');
 }
 
 function openBuild() {
@@ -703,34 +895,45 @@ function renderGloryPanel() {
 function renderBuildPanel() {
   const list = document.getElementById('buildlist');
   list.innerHTML = '';
+
+  // Townhall upgrade (always shown at top)
+  const thCost = 6;
+  const thDiv = document.createElement('div');
+  thDiv.className = 'bcard built';
+  thDiv.innerHTML = `<h3>Townhall <small style="color:#484f58">lv${townhallLevel}</small></h3>
+    <p>Draws ${cardsPerTurn} cards/turn. Upgrade for +1 card + bonus.</p>
+    <div class="cost">${thCost} gold</div>
+    <button class="bbtn" onclick="openTownhallUp()" ${gold < thCost ? 'disabled' : ''}>Upgrade</button>`;
+  list.appendChild(thDiv);
+
   for (const b of BUILDING_DEFS) {
     const built = buildings.has(b.id);
-    const canAfford = gold >= b.cost;
+    const blocked = b.requires && !buildings.has(b.requires);
+    const canAfford = gold >= b.cost && !blocked;
     const div = document.createElement('div');
     div.className = 'bcard' + (built ? ' built' : '');
-    let html = `<h3>${b.name}</h3><p>${b.desc}</p>`;
-    if (!built) {
+    const tierLabel = b.tier === 2 ? ' <small style="color:#7060a0">[T2]</small>' : '';
+    let html = `<h3>${b.name}${tierLabel}</h3><p>${b.desc}</p>`;
+    if (blocked) {
+      html += `<div class="cost" style="color:#604040">Requires ${b.requires}</div>`;
+    } else if (!built) {
       html += `<div class="cost">${b.cost} gold</div>`;
-      html += `<button class="bbtn" onclick="buildBuilding('${b.id}')" ${(!canAfford) ? 'disabled' : ''}>Build</button>`;
+      html += `<button class="bbtn" onclick="buildBuilding('${b.id}')" ${!canAfford ? 'disabled' : ''}>Build</button>`;
     } else {
       html += `<div class="cost" style="color:#484f58">Built ✓</div>`;
     }
-    // Training Ground: show upgrade rows when built
+    // Training Ground upgrade rows
     if (b.id === 'training' && built) {
-      const trainableUnits = Object.values(UNIT_DEFS).filter(u =>
-        unitPool.some(p => p.name === u.name)
-      );
+      const trainableUnits = Object.values(UNIT_DEFS).filter(u => unitPool.some(p => p.name === u.name));
       if (trainableUnits.length) {
         html += '<div class="upgrades">';
         for (const u of trainableUnits) {
           for (const stat of ['atk', 'def']) {
             const lvl = trainingLevels[`${u.name}-${stat}`] || 0;
             const cost = 1 + lvl;
-            const label = stat.toUpperCase();
             html += `<div class="urow">
-              <span>${u.name} +${label} (lv${lvl})</span>
-              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')"
-                ${gold < cost ? 'disabled' : ''}>${cost}g</button>
+              <span>${u.name} +${stat.toUpperCase()} (lv${lvl})</span>
+              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')" ${gold < cost ? 'disabled' : ''}>${cost}g</button>
             </div>`;
           }
         }
@@ -738,6 +941,15 @@ function renderBuildPanel() {
       } else {
         html += '<div class="upgrades" style="font-size:11px;color:#484f58">Build unit buildings first.</div>';
       }
+    }
+    // Hot Spring: show Use button when built
+    if (b.id === 'hotspring' && built) {
+      const hasUnits = hand.some(c => !c.dying);
+      html += `<div class="upgrades"><button class="ubtn" onclick="closeBuild();openHotSpring()" ${!hasUnits ? 'disabled' : ''}>Use Hot Spring</button></div>`;
+    }
+    // Academy: show research placeholder when built
+    if (b.id === 'academy' && built) {
+      html += `<div class="upgrades" style="font-size:11px;color:#484f58">Spell research: T2 spells coming soon.</div>`;
     }
     div.innerHTML = html;
     list.appendChild(div);
@@ -892,7 +1104,12 @@ function runPhases(atkCards, defCards, speedNote) {
     const d = UNIT_DEFS[c.name];
     if (d?.skirmish) d.skirmish({ self: c, allies: atkCards, cbt });
   }
-  // Knight anti-projectile: halve the debuf if any Knight is in the defending side
+  // Defender counter-skirmish (e.g. Shieldbearer absorbs arrows)
+  for (const c of defCards) {
+    const d = UNIT_DEFS[c.name];
+    if (d?.counterSkirmish) d.counterSkirmish({ self: c, allies: defCards, cbt });
+  }
+  // Knight anti-projectile: halve remaining debuf if any Knight is defending
   if (cbt.defDebuf > 0 && defCards.some(c => UNIT_DEFS[c.name]?.antiProjectile)) {
     const orig = cbt.defDebuf;
     cbt.defDebuf = Math.floor(cbt.defDebuf / 2);
@@ -912,6 +1129,17 @@ function runPhases(atkCards, defCards, speedNote) {
   const defTotal = Math.max(0, rawDef - cbt.defDebuf);
 
   return { lines, tag, atkTotal, rawDef, defDebuf: cbt.defDebuf, defTotal, origDefCount, finalDefCount: defCards.length };
+}
+
+// Fires aftermath skills on actual hand cards (not copies). Returns extra HTML or ''.
+function runAftermath(cards, won) {
+  const lines = [];
+  const tag = (cls, txt) => `<span class="${cls}">${txt}</span>`;
+  for (const c of cards) {
+    const d = UNIT_DEFS[c.name];
+    if (d?.aftermath) d.aftermath({ self: c, allies: cards, won, lines, tag });
+  }
+  return lines.length ? '\n' + lines.join('\n') : '';
 }
 
 function buildDefenseCombatLog(aiForce, playerDef) {
@@ -948,6 +1176,8 @@ function resolveIncomingAttack() {
   const result = buildDefenseCombatLog(aiForce, playerDef);
 
   hand.forEach(c => { if (defenders.has(c.id)) c.dying = true; });
+  const aftermathHtml = runAftermath(playerDef, !result.aiWins);
+
   defenders = new Set();
   defenseMode = false;
   document.getElementById('defendbtn').classList.remove('active');
@@ -958,7 +1188,7 @@ function resolveIncomingAttack() {
   else { gloryCoins++; log(`Defense held! +1 Glory Coin (total: ${gloryCoins})`); }
 
   document.getElementById('combattitle').textContent = '⚔ ENEMY WAR PARTY';
-  document.getElementById('combatlog').innerHTML = result.html;
+  document.getElementById('combatlog').innerHTML = result.html + aftermathHtml;
   document.getElementById('combatoverlay').classList.remove('hidden');
   update();
   renderHand();
@@ -1116,8 +1346,11 @@ function launchWarParty() {
   // LOCAL_MODE: resolve immediately against AI defense
   const aiDef = generateAIDefense();
   const result = buildCombatLog(attackers, aiDef);
+  // Mark attackers dying, then run aftermath (may un-dying some)
+  attackers.forEach(c => { c.dying = true; });
+  const aftermathHtml = runAftermath(attackers, result.win);
   document.getElementById('combattitle').textContent = '⚔ WAR PARTY COMBAT';
-  document.getElementById('combatlog').innerHTML = result.html;
+  document.getElementById('combatlog').innerHTML = result.html + aftermathHtml;
   document.getElementById('combatoverlay').classList.remove('hidden');
   if (result.win) { enemyHealth = Math.max(0, enemyHealth - 1); gloryCoins++; }
   update(); renderHand(); render();
@@ -1195,13 +1428,24 @@ function endTurn() {
 }
 
 function advanceTurn() {
+  // Fire turnEnd skills before removing dying cards (e.g. Peasant gold)
+  const seenTurnEnd = new Set();
+  for (const c of hand.filter(c => !c.dying)) {
+    if (!seenTurnEnd.has(c.name)) {
+      seenTurnEnd.add(c.name);
+      const d = UNIT_DEFS[c.name];
+      if (d?.turnEnd) { const msg = d.turnEnd(); if (msg) log(msg); }
+    }
+  }
+
   hand = hand.filter(c => !c.dying);
   gold += goldIncome;
   mana += manaIncome;
   turn++;
   army.movesLeft = 3;
-  const drew = unitPool.length ? 3 : 0;
-  drawCards(3);
+  const prevHandSize = hand.length;
+  drawCards(cardsPerTurn);
+  const drew = hand.length - prevHandSize;
 
   // Extinguish fires from last turn
   fireTiles.clear();
@@ -1213,7 +1457,7 @@ function advanceTurn() {
   const btn = document.getElementById('endbtn');
   btn.disabled = false;
   btn.textContent = 'End Turn';
-  const drewMsg = drew ? `Townhall drew ${drew} cards.` : 'Townhall has no unit pool yet — build Barracks!';
+  const drewMsg = drew > 0 ? `Townhall drew ${drew} card${drew > 1 ? 's' : ''}.` : (unitPool.length ? `Supply full (${supply}).` : 'No unit pool — build Barracks!');
   log(`Turn ${turn} begins. +${goldIncome} gold. ${drewMsg}`);
   update();
   renderHand();
@@ -1236,6 +1480,7 @@ function update() {
   document.getElementById('sHealth').textContent = health;
   document.getElementById('sMoves').textContent = army.movesLeft;
   document.getElementById('sGlory').textContent = gloryCoins;
+  document.getElementById('sSupply').textContent = `${hand.filter(c => !c.dying).length}/${supply}`;
   if (manaIncome > 0) {
     document.getElementById('manaDisplay').style.display = '';
     document.getElementById('sMana').textContent = mana;
@@ -1657,14 +1902,16 @@ window.addEventListener('resize', () => { resize(); render(); });
 resize();
 buildMap();
 revealAround(army.q, army.r);
-hand = [makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior), makeCard(UNIT_DEFS.Warrior)];
+// Starting pool has Peasant; draw 4 to open hand
+unitPool.push(UNIT_DEFS.Peasant);
+for (let i = 0; i < 4; i++) hand.push(makeCard(UNIT_DEFS.Peasant));
 render();
 update();
 renderHand();
 if (!LOCAL_MODE) {
   initMultiplayer();
 } else {
-  log('Build Barracks to start drawing units each turn. Starting garrison: 3 Warriors.');
+  log('4 Peasants in hand. Hold them for gold income, or build Barracks to add Warriors to your pool.');
 }
 </script>
 </body>
