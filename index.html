@@ -456,6 +456,8 @@ function revealAround(q, r) {
 }
 
 // ── Game state ────────────────────────────────────────────────────────────
+const PLAYER_CITY = { q: 5, r: 0 };
+const ENEMY_CITY_LOCAL = { q: -5, r: 0 };
 let turn = 1, gold = 5, health = 10, enemyHealth = 10;
 let supply = 6;    // max hand size; enforced on draw
 let luck = 0;      // kingdom luck stat — each point adds 5% to all % abilities
@@ -1672,44 +1674,72 @@ function render() {
     }
   }
 
-  // Player army
+  // ── Player city (fixed) ───────────────────────────────────────────────
+  {
+    const { x, y } = h2p(PLAYER_CITY.q, PLAYER_CITY.r);
+    const cx = ox + x, cy = oy + y;
+    const s = SIZE * 0.38;
+    ctx.fillStyle = '#1a3a5a';
+    ctx.strokeStyle = '#70b0ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.rect(cx - s * 0.7, cy - s * 0.5, s * 1.4, s * 1.1);
+    ctx.fill(); ctx.stroke();
+    // Battlements (3 notches on top)
+    ctx.fillStyle = '#1a3a5a';
+    ctx.strokeStyle = '#70b0ff';
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.rect(cx + i * s * 0.4 - s * 0.15, cy - s * 0.85, s * 0.3, s * 0.38);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#90d0ff';
+    ctx.font = `bold ${Math.floor(SIZE * 0.22)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`♥${health}`, cx, cy + s * 0.1);
+  }
+
+  // ── Player army (moveable) ────────────────────────────────────────────
   {
     const { x, y } = h2p(army.q, army.r);
     const cx = ox + x, cy = oy + y;
     ctx.beginPath();
-    ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = selected ? '#5ab0f0' : '#2e70c0';
+    ctx.arc(cx, cy, SIZE * 0.26, 0, Math.PI * 2);
+    ctx.fillStyle = selected ? '#5ab0f0' : '#2e8040';
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(SIZE * 0.3)}px monospace`;
+    ctx.font = `bold ${Math.floor(SIZE * 0.26)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('P', cx, cy);
+    ctx.fillText('⚔', cx, cy);
   }
 
-  // Enemy castle (always visible — road reveals it at start)
+  // ── Enemy city (always visible) ───────────────────────────────────────
   {
-    const ec = LOCAL_MODE ? { q: -5, r: 0 } : ENEMY_CASTLE();
+    const ec = LOCAL_MODE ? ENEMY_CITY_LOCAL : ENEMY_CASTLE();
     const { x, y } = h2p(ec.q, ec.r);
     const cx = ox + x, cy = oy + y;
+    const s = SIZE * 0.38;
+    ctx.fillStyle = enemyHealth <= 0 ? '#2a2a2a' : '#3a1010';
+    ctx.strokeStyle = enemyHealth <= 0 ? '#444' : '#ff7070';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, SIZE * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = enemyHealth <= 0 ? '#444' : '#b03030';
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(SIZE * 0.28)}px monospace`;
+    ctx.rect(cx - s * 0.7, cy - s * 0.5, s * 1.4, s * 1.1);
+    ctx.fill(); ctx.stroke();
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.rect(cx + i * s * 0.4 - s * 0.15, cy - s * 0.85, s * 0.3, s * 0.38);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = enemyHealth <= 0 ? '#666' : '#ffb0b0';
+    ctx.font = `bold ${Math.floor(SIZE * 0.22)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('E', cx, cy - SIZE * 0.08);
-    ctx.font = `${Math.floor(SIZE * 0.22)}px monospace`;
-    ctx.fillStyle = '#ffb0b0';
-    ctx.fillText(`♥${enemyHealth}`, cx, cy + SIZE * 0.2);
+    ctx.fillText(`♥${enemyHealth}`, cx, cy + s * 0.1);
   }
 }
 
