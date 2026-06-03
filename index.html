@@ -284,6 +284,7 @@ canvas { flex: 1; display: block; width: 100%; }
   <span>Supply <b id="sSupply">0/6</b></span>
   <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
   <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
+  <button id="armybtn" onclick="createArmy()">Create Army</button>
   <button id="attackbtn" onclick="enterWar()">Attack</button>
   <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
   <button id="glorybtn" onclick="openGlory()">Glory Shop</button>
@@ -474,7 +475,7 @@ let luck = 0;      // kingdom luck stat — each point adds 5% to all % abilitie
 let townhallLevel = 0, cardsPerTurn = 3;
 let hotSpringTarget = null; // card id currently selected in hot spring UI
 let spellTier = 1;  // highest accessible spell tier (Academy raises it)
-let army = { q: 9, r: 0, movesLeft: 3 };
+let army = null;
 let hand = [];         // [{ id, name, atk, def, dying }]
 let cardIdSeq = 0;
 let selected = false;
@@ -486,7 +487,7 @@ let reachable = new Map();
 
 // ── BFS reachable ─────────────────────────────────────────────────────────
 function computeReachable() {
-  if (!selected || army.movesLeft === 0) return new Map();
+  if (!army || !selected || army.movesLeft === 0) return new Map();
   const costs = new Map([[tkey(army.q, army.r), 0]]);
   const queue = [{ q: army.q, r: army.r, steps: 0 }];
   while (queue.length) {
@@ -1316,6 +1317,15 @@ function resolveSpellTarget(q, r) {
   update(); renderSpellBar(); render();
 }
 
+function createArmy() {
+  if (army) return;
+  if (phase !== 'playing') { log('Finish current action first.'); return; }
+  army = { q: PLAYER_CITY.q, r: PLAYER_CITY.r, movesLeft: 3 };
+  revealAround(army.q, army.r, 2);
+  log('Army raised at your city. Click the ⚔ marker to select it, then click a highlighted tile to move.');
+  update(); render();
+}
+
 function enterWar() {
   if (phase !== 'playing') { log('Finish current action first.'); return; }
   if (gold < 1) { log('Need at least 1 gold to send a War Party.'); return; }
@@ -1466,7 +1476,7 @@ function advanceTurn() {
   gold += goldIncome;
   mana += manaIncome;
   turn++;
-  army.movesLeft = 3;
+  if (army) army.movesLeft = 3;
   const prevHandSize = hand.length;
   drawCards(cardsPerTurn);
   const drew = hand.length - prevHandSize;
@@ -1502,7 +1512,8 @@ function update() {
   document.getElementById('sTurn').textContent = turn;
   document.getElementById('sGold').textContent = gold;
   document.getElementById('sHealth').textContent = health;
-  document.getElementById('sMoves').textContent = army.movesLeft;
+  document.getElementById('sMoves').textContent = army ? army.movesLeft : '--';
+  document.getElementById('armybtn').style.display = army ? 'none' : '';
   document.getElementById('sGlory').textContent = gloryCoins;
   document.getElementById('sSupply').textContent = `${hand.filter(c => !c.dying).length}/${supply}`;
   if (manaIncome > 0) {
@@ -1717,7 +1728,7 @@ function render() {
   }
 
   // ── Player army (moveable) ────────────────────────────────────────────
-  {
+  if (army) {
     const { x, y } = h2p(army.q, army.r);
     const cx = ox + x, cy = oy + y;
     ctx.beginPath();
@@ -1772,7 +1783,7 @@ canvas.addEventListener('click', e => {
 
   // While capturing: clicking army re-opens capture UI on current POI
   if (phase === 'capturing') {
-    if (q === army.q && r === army.r) {
+    if (army && q === army.q && r === army.r) {
       const t = tiles.get(tkey(army.q, army.r));
       if (t && t.poi) enterCapture(army.q, army.r);
     }
@@ -1780,7 +1791,7 @@ canvas.addEventListener('click', e => {
   }
 
   // Toggle army selection
-  if (q === army.q && r === army.r) {
+  if (army && q === army.q && r === army.r) {
     // If standing on an uncaptured POI, re-open capture instead of just selecting
     const here = tiles.get(k);
     if (here && here.poi && here.stack !== null) {
@@ -1959,7 +1970,7 @@ renderHand();
 if (!LOCAL_MODE) {
   initMultiplayer();
 } else {
-  log('Welcome! Click your army to explore the map. Use Attack to send a War Party. Build to grow your kingdom.');
+  log('Welcome! Press "Create Army" to raise your forces. Use Attack to send a War Party. Build to grow your kingdom.');
 }
 </script>
 </body>
