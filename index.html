@@ -15,114 +15,156 @@ body {
   overflow: hidden;
 }
 #topbar {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 6px 14px;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
-  font-size: 13px;
-  flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 10px; height: 46px;
+  background: linear-gradient(180deg, #1a2030 0%, #101620 100%);
+  border-bottom: 1px solid #243040;
+  flex-shrink: 0; overflow: hidden;
 }
-#topbar b { color: #f0c040; }
+.hud-stat {
+  display: flex; align-items: center; gap: 3px;
+  background: rgba(255,255,255,0.04); border: 1px solid #1e2e40;
+  border-radius: 4px; padding: 3px 7px; white-space: nowrap;
+}
+.hud-icon { font-size: 12px; }
+.hud-label { font-size: 10px; color: #4a6a88; }
+.hud-val { font-size: 13px; font-weight: bold; color: #c8dff0; }
+#topbar .hud-btn {
+  background: #111e2e; color: #7090b0; border: 1px solid #1e3348;
+  padding: 4px 9px; cursor: pointer; font-family: monospace; font-size: 11px;
+  border-radius: 3px; white-space: nowrap; transition: background 0.12s, color 0.12s;
+}
+#topbar .hud-btn:hover { background: #1a2e44; color: #a0c0e0; }
+#topbar .hud-btn.danger  { color: #d07070; border-color: #4a2020; }
+#topbar .hud-btn.danger:hover  { background: #241010; color: #ff9090; }
+#topbar .hud-btn.danger.active { background: #321010; border-color: #903030; color: #ffb0b0; }
+#topbar .hud-btn.success { color: #50c870; border-color: #1a4a28; }
+#topbar .hud-btn.success:hover { background: #0c1e14; }
 #endbtn {
   margin-left: auto;
-  background: #238636;
-  color: #fff;
-  border: none;
-  padding: 5px 18px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 13px;
+  background: #164a24; color: #70f090; border: 1px solid #228840;
+  padding: 5px 16px; cursor: pointer; font-family: monospace; font-size: 12px;
+  border-radius: 3px; transition: background 0.12s;
 }
-#endbtn:hover:not(:disabled) { background: #2ea043; }
-#endbtn:disabled { background: #2a3a2a; color: #6e9c6e; cursor: default; }
+#endbtn:hover:not(:disabled) { background: #1e6030; }
+#endbtn:disabled { background: #0e1e14; color: #3a6044; cursor: default; border-color: #1a3020; }
 canvas { flex: 1; display: block; width: 100%; }
 #bottombar {
-  background: #161b22;
-  border-top: 1px solid #30363d;
-  flex-shrink: 0;
+  background: #090d12; border-top: 2px solid #1a2838;
+  flex-shrink: 0; display: flex; flex-direction: column;
 }
 #logline {
-  font-size: 11px;
-  color: #8b949e;
-  padding: 3px 12px;
-  border-bottom: 1px solid #21262d;
+  font-size: 11px; color: #3a5068;
+  padding: 4px 14px; border-bottom: 1px solid #111a24;
 }
 #hand {
-  display: flex;
-  gap: 6px;
-  padding: 6px 12px;
-  min-height: 74px;
-  overflow-x: auto;
-  align-items: flex-start;
+  display: flex; align-items: flex-end;
+  padding: 26px 20px 8px; gap: 0;
+  overflow-x: auto; overflow-y: clip;
+  min-height: 152px; max-height: 172px;
+  scrollbar-width: thin; scrollbar-color: #1a2a3a #090d12;
+  background: linear-gradient(180deg, #08090e 0%, #090d12 100%);
 }
 .card {
-  border: 1px solid #30363d;
-  padding: 5px 8px;
-  background: #21262d;
-  min-width: 68px;
-  font-size: 11px;
-  border-radius: 3px;
+  width: 78px;
+  min-height: 112px;
+  border-radius: 7px;
+  border: 1.5px solid #3a4858;
+  background: linear-gradient(160deg, #1e2a3a 0%, #0c1520 100%);
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  position: relative;
+  cursor: default;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  transform-origin: bottom center;
+  margin-left: -12px;
+  user-select: none;
 }
-.card b { color: #79c0ff; display: block; margin-bottom: 3px; }
-.card span { color: #8b949e; }
-.card.committed { border-color: #f0c040; background: #2a2810; cursor: pointer; }
-.card.dying { opacity: 0.45; border-color: #803030; cursor: default; }
-.card.dying b { color: #a07070; }
-#capturebar {
-  display: none;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 12px;
-  background: #1a1200;
-  border-bottom: 1px solid #4a3800;
-  font-size: 12px;
-  color: #c8a040;
+.card:first-child { margin-left: 0; }
+.card:not(.dying):hover {
+  transform: translateY(-18px) rotate(0deg) !important;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.8), 0 0 10px rgba(80,160,255,0.25);
+  border-color: #5a90c0;
+  z-index: 30;
 }
-#capturebar.active { display: flex; }
-#capturebtn {
-  background: #7a4000;
-  color: #ffd080;
-  border: 1px solid #a06000;
-  padding: 3px 12px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 12px;
+.card.committed {
+  border-color: #f0c040;
+  box-shadow: 0 0 14px rgba(240,192,64,0.5);
+  transform: translateY(-12px) rotate(0deg) !important;
+  z-index: 20;
 }
-#capturebtn:disabled { background: #2a2010; color: #604020; cursor: default; border-color: #3a2800; }
-#cancelbtn {
-  background: transparent;
-  color: #8b949e;
-  border: 1px solid #30363d;
-  padding: 3px 10px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 12px;
+.card.defending {
+  border-color: #6090ff;
+  box-shadow: 0 0 12px rgba(96,144,255,0.4);
+  transform: translateY(-8px) !important;
 }
-/* ── War Party bar ── */
-#warbar {
-  display: none;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 12px;
-  background: #1a0808;
-  border-bottom: 1px solid #5a1010;
-  font-size: 12px;
-  color: #e08080;
+.card.dying { opacity: 0.32; filter: grayscale(0.5); }
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 5px 2px;
 }
-#warbar.active { display: flex; }
-#warbtn {
-  background: #7a1010;
-  color: #ffb0b0;
-  border: 1px solid #a03030;
-  padding: 3px 12px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 12px;
+.card-cost { font-size: 11px; color: #f0c040; font-weight: bold; }
+.card-tier { font-size: 9px; color: #3a4a58; }
+.card-art {
+  height: 36px; margin: 0 4px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
 }
-#warbtn:disabled { background: #2a1010; color: #604040; cursor: default; border-color: #3a1818; }
+.card-art.physical { background: linear-gradient(135deg,#3a1008,#7a2810); }
+.card-art.magic    { background: linear-gradient(135deg,#180830,#3a1880); }
+.card-art.utility  { background: linear-gradient(135deg,#0a200a,#1a4a1a); }
+.card-name {
+  font-size: 10px; font-weight: bold; color: #c0d0e0;
+  padding: 3px 5px 1px; text-align: center; line-height: 1.2;
+}
+.card-stats {
+  display: flex; justify-content: center; gap: 7px;
+  padding: 2px 4px; font-size: 10px; font-weight: bold;
+}
+.card-stats .atk { color: #ff7050; }
+.card-stats .def { color: #5090e0; }
+.card-tags {
+  font-size: 8px; color: #2e3e50; text-align: center;
+  padding: 1px 4px 4px; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-upbadge {
+  font-size: 8px; color: #80e080; text-align: center;
+  padding: 0 4px 3px;
+}
+/* ── Unified action bar ── */
+.action-bar {
+  display: none; align-items: center; gap: 10px;
+  padding: 6px 14px;
+  background: linear-gradient(90deg,#0a1018,#0d1420);
+  border-bottom: 1px solid #192536;
+  font-size: 11px;
+}
+.action-bar.active { display: flex; }
+.action-bar .bar-label { flex: 1; font-weight: bold; }
+.action-bar .bar-sub   { font-size: 10px; opacity: 0.7; margin-left: 6px; }
+.bar-confirm {
+  padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 11px;
+  border-radius: 3px; border: 1px solid; transition: background 0.1s; font-weight: bold;
+}
+.bar-confirm:disabled { opacity: 0.3; cursor: default; }
+.bar-cancel {
+  background: transparent; color: #3a5068; border: 1px solid #1a2a38;
+  padding: 3px 10px; cursor: pointer; font-family: monospace; font-size: 11px;
+  border-radius: 3px;
+}
+.bar-cancel:hover { color: #6a90a8; border-color: #2a3e52; }
+#capturebar { color: #d8a020; }
+#capturebar .bar-confirm { background:#4a2800; color:#ffd060; border-color:#886010; }
+#capturebar .bar-confirm:hover:not(:disabled) { background:#6a3a00; }
+#raisebar   { color: #50d870; }
+#raisebar   .bar-confirm { background:#143a18; color:#90ffb0; border-color:#228832; }
+#raisebar   .bar-confirm:hover:not(:disabled) { background:#1c5224; }
+#warbar     { color: #d86060; }
+#warbar     .bar-confirm { background:#380e0e; color:#ffa0a0; border-color:#882020; }
+#warbar     .bar-confirm:hover:not(:disabled) { background:#501414; }
 /* ── Combat result overlay ── */
 #combatoverlay {
   position: fixed; inset: 0;
@@ -153,6 +195,90 @@ canvas { flex: 1; display: block; width: 100%; }
   cursor: pointer; font-family: monospace; font-size: 13px;
 }
 /* ── Build overlay ── */
+/* ── Town Screen ─────────────────────────────────────────────────────────── */
+#townoverlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; flex-direction: column;
+  background: #010408;
+}
+#townoverlay.hidden { display: none; }
+#towncanvas { width: 100%; flex: 0 0 54%; display: block; }
+#townbottom {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  background: linear-gradient(180deg, #0d1117 0%, #080c10 100%);
+  border-top: 2px solid #2a3848;
+}
+#townheader {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 18px; border-bottom: 1px solid #1c2a38; flex-shrink: 0;
+}
+#townheader h2 {
+  font-size: 15px; color: #c8a840; margin: 0;
+  font-family: monospace; letter-spacing: 3px; text-shadow: 0 0 12px #a08020;
+}
+#townheader .townstats { font-size: 12px; color: #8b949e; display: flex; gap: 16px; }
+#townheader .townstats b { color: #f0c040; }
+#townbuildscroll {
+  flex: 1; overflow: auto;
+  padding: 12px 18px 14px;
+  display: flex;
+  gap: 0;
+  scrollbar-width: thin; scrollbar-color: #2a3848 #0d1117;
+}
+.skill-branch {
+  flex: 1; display: flex; flex-direction: column;
+  border-right: 1px solid #1c2838;
+  padding: 0 14px;
+  min-width: 0;
+}
+.skill-branch:last-child { border-right: none; }
+.skill-branch-title {
+  font-size: 11px; font-weight: bold; color: #6a8aaa;
+  letter-spacing: 1px; text-transform: uppercase;
+  margin-bottom: 10px; text-align: center;
+}
+.skill-node {
+  border: 1.5px solid #1e2e3e;
+  border-radius: 5px;
+  background: #0c1420;
+  padding: 7px 9px;
+  margin-bottom: 4px;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  position: relative;
+}
+.skill-node.sn-built {
+  border-color: #2ea060;
+  background: #0a1c10;
+}
+.skill-node.sn-available {
+  border-color: #2a4860;
+  cursor: pointer;
+}
+.skill-node.sn-available:hover {
+  border-color: #4a90c0;
+  box-shadow: 0 0 10px rgba(60,140,200,0.3);
+  background: #0e1e2e;
+}
+.skill-node.sn-locked { opacity: 0.35; }
+.skill-node-icon { font-size: 18px; float: left; margin-right: 7px; line-height: 1; }
+.skill-node-name { font-size: 11px; font-weight: bold; color: #a0b8d0; margin-bottom: 2px; }
+.skill-node-desc { font-size: 10px; color: #4a6070; line-height: 1.3; clear: both; }
+.skill-node-cost { font-size: 10px; color: #f0c040; margin-top: 4px; }
+.skill-node-status { font-size: 10px; color: #40a060; margin-top: 4px; }
+.skill-node-locked-label { font-size: 10px; color: #5a3030; margin-top: 4px; }
+.skill-connector {
+  width: 2px; height: 12px;
+  background: linear-gradient(to bottom, #2a4060, #1a3050);
+  margin: 0 auto 4px;
+}
+.skill-node-actions { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+#townbuildscroll .bcard { flex: 0 0 170px; min-height: 110px; }
+#closetown {
+  background: transparent; color: #8b949e; border: 1px solid #2a3848;
+  padding: 4px 16px; cursor: pointer; font-family: monospace; font-size: 12px;
+}
+#closetown:hover { background: #1c2a38; color: #c8c8c8; }
+/* Legacy overlay (unused but keep for compat) */
 #buildoverlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.78);
@@ -184,14 +310,8 @@ canvas { flex: 1; display: block; width: 100%; }
 .ubtn { background: #1a3a1a; color: #70c070; border: 1px solid #2a5a2a; padding: 1px 7px; cursor: pointer; font-family: monospace; font-size: 10px; }
 .ubtn:disabled { background: #1a1a1a; color: #484f58; cursor: default; border-color: #30363d; }
 #closebuild { margin-top: 12px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
-#buildbtn { background: #21262d; color: #c8c8c8; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
-#buildbtn:hover { background: #30363d; }
-#attackbtn { background: #21262d; color: #c06060; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
-#attackbtn:hover { background: #2a1010; }
-#attackbtn.active { background: #3a1010; border-color: #a03030; color: #ff9090; }
-#defendbtn { background: #21262d; color: #7090c0; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
-#defendbtn:hover { background: #161d28; }
-#defendbtn.active { background: #1a3a5a; border-color: #4070c0; color: #90c0f0; }
+#attackbtn.active { background: #3a1010; border-color: #903030; color: #ffb0b0; }
+#defendbtn.active { background: #0a1e3a; border-color: #2050a0; color: #90c0f0; }
 .card.defending { border-color: #4070c0; background: #101830; cursor: pointer; }
 #defensebar {
   display: none;
@@ -277,18 +397,36 @@ canvas { flex: 1; display: block; width: 100%; }
 </head>
 <body>
 <div id="topbar">
-  <span>Turn <b id="sTurn">1</b></span>
-  <span>Gold <b id="sGold">5</b></span>
-  <span>Health <b id="sHealth">10</b></span>
-  <span>Moves <b id="sMoves">3</b></span>
-  <span>Supply <b id="sSupply">0/6</b></span>
-  <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
-  <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
-  <button id="attackbtn" onclick="enterWar()">Attack</button>
-  <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
-  <button id="glorybtn" onclick="openGlory()">Glory Shop</button>
-  <button id="buildbtn" onclick="openBuild()">Build</button>
-  <button id="endbtn" onclick="endTurn()">End Turn</button>
+  <div class="hud-stat"><span class="hud-icon">🔄</span><span class="hud-label">Turn</span><span class="hud-val" id="sTurn">1</span></div>
+  <div class="hud-stat"><span class="hud-icon">💰</span><span class="hud-label">Gold</span><span class="hud-val" id="sGold">5</span></div>
+  <div class="hud-stat"><span class="hud-icon">❤️</span><span class="hud-label">HP</span><span class="hud-val" id="sHealth">10</span></div>
+  <div class="hud-stat"><span class="hud-icon">👣</span><span class="hud-label">Moves</span><span class="hud-val" id="sMoves">3</span></div>
+  <div class="hud-stat"><span class="hud-icon">🃏</span><span class="hud-label">Supply</span><span class="hud-val" id="sSupply">0/6</span></div>
+  <div class="hud-stat" id="gloryDisplay"><span class="hud-icon">✦</span><span class="hud-label">Glory</span><span class="hud-val" id="sGlory" style="color:#f0c040">0</span></div>
+  <div class="hud-stat" id="manaDisplay" style="display:none"><span class="hud-icon">💧</span><span class="hud-label">Mana</span><span class="hud-val" id="sMana">0</span></div>
+  <button id="armybtn" class="hud-btn success" onclick="createArmy()">⚔ Army</button>
+  <button id="attackbtn" class="hud-btn danger" onclick="enterWar()">⚔ Attack</button>
+  <button id="defendbtn" class="hud-btn" onclick="toggleDefenseMode()">🛡 Defend</button>
+  <button id="glorybtn" class="hud-btn" onclick="openGlory()">✦ Glory</button>
+  <button id="buildbtn" class="hud-btn" onclick="openTown()">🏰 Town</button>
+  <button id="endbtn" onclick="endTurn()">End Turn ▶</button>
+</div>
+<div id="townoverlay" class="hidden">
+  <canvas id="towncanvas"></canvas>
+  <div id="townbottom">
+    <div id="townheader">
+      <h2>⚔ YOUR KINGDOM ⚔</h2>
+      <div class="townstats">
+        <span>Gold <b id="tGold">0</b></span>
+        <span>Mana <b id="tMana" style="color:#80a8ff">0</b></span>
+        <span>Supply <b id="tSupply">0/0</b></span>
+      </div>
+      <button id="closetown" onclick="closeTown()">⬅ Leave Town</button>
+    </div>
+    <div id="townbuildscroll">
+      <!-- building cards injected by renderTownBuildings() -->
+    </div>
+  </div>
 </div>
 <div id="buildoverlay" class="hidden">
   <div id="buildpanel">
@@ -336,15 +474,20 @@ canvas { flex: 1; display: block; width: 100%; }
 <canvas id="c"></canvas>
 <div id="bottombar">
   <div id="logline">Click your army (P) to select it, then click a highlighted tile to move.</div>
-  <div id="capturebar">
-    <span id="captureinfo"></span>
-    <button id="capturebtn" onclick="confirmCapture()" disabled>Capture!</button>
-    <button id="cancelbtn" onclick="cancelCapture()">Cancel</button>
+  <div id="capturebar" class="action-bar">
+    <span class="bar-label" id="captureinfo"></span>
+    <button class="bar-confirm" id="capturebtn" onclick="confirmCapture()" disabled>Capture!</button>
+    <button class="bar-cancel" onclick="cancelCapture()">Cancel</button>
   </div>
-  <div id="warbar">
-    <span id="warinfo"></span>
-    <button id="warbtn" onclick="launchWarParty()" disabled>Attack (1g)</button>
-    <button class="cancelbtn" onclick="cancelWar()">Cancel</button>
+  <div id="raisebar" class="action-bar">
+    <span class="bar-label" id="raiseinfo">Select cards to commit to the army</span>
+    <button class="bar-confirm" id="raisebtn" onclick="confirmRaise()" disabled>Raise Army</button>
+    <button class="bar-cancel" onclick="cancelRaise()">Cancel</button>
+  </div>
+  <div id="warbar" class="action-bar">
+    <span class="bar-label" id="warinfo"></span>
+    <button class="bar-confirm" id="warbtn" onclick="launchWarParty()" disabled>Attack (1g)</button>
+    <button class="bar-cancel" onclick="cancelWar()">Cancel</button>
   </div>
   <div id="defensebar">
     <span id="defenseinfo"></span>
@@ -405,15 +548,107 @@ const ROAD_TILES = new Set(Array.from({length: 19}, (_, i) => `${i - 9},0`));
 const INTERIOR_ROAD = new Set([...ROAD_TILES].filter(k => k !== '9,0' && k !== '-9,0'));
 
 function rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
-// All % abilities use this so luck buffs apply uniformly
 function effectiveChance(base) { return Math.min(1, base + luck * 0.05); }
+
+// ── Terrain ────────────────────────────────────────────────────────────────
+const TERRAIN = {
+  road:     { fill: '#b89040', stroke: '#8a6820' },
+  grass:    { fill: '#3a7a30', stroke: '#286020' },
+  plains:   { fill: '#a87c38', stroke: '#806028' },
+  forest:   { fill: '#1e5a1e', stroke: '#143e14' },
+  swamp:    { fill: '#3c2e52', stroke: '#2a2038' },
+  darkwood: { fill: '#1c3818', stroke: '#122810' },
+  dead:     { fill: '#4a2c1e', stroke: '#341c12' },
+  volcanic: { fill: '#3e1c10', stroke: '#2a1008' },
+};
+
+// Deterministic per-tile RNG for pixel art detail placement
+function tRng(q, r, s) {
+  let h = ((q * 1664525) ^ (r * 22695477) ^ (s * 214013)) >>> 0;
+  h = (h * 1013904223 + 1664525) >>> 0;
+  return h / 0x100000000;
+}
+
+function drawTerrainDetail(cx, cy, q, r, type) {
+  ctx.save();
+  const s = SIZE * 0.52; // scatter radius
+  if (type === 'grass') {
+    ctx.fillStyle = '#72d858';
+    for (let i = 0; i < 5; i++) {
+      const gx = Math.round(cx + (tRng(q, r, i * 2) - 0.5) * s * 1.6);
+      const gy = Math.round(cy + (tRng(q, r, i * 2 + 1) - 0.5) * s);
+      ctx.fillRect(gx,     gy,     1, 3);
+      ctx.fillRect(gx - 1, gy + 1, 1, 1);
+      ctx.fillRect(gx + 1, gy + 1, 1, 1);
+    }
+  } else if (type === 'plains') {
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = tRng(q, r, i * 3 + 99) > 0.5 ? '#e8cc38' : '#c8a830';
+      const gx = Math.round(cx + (tRng(q, r, i * 2) - 0.5) * s * 1.7);
+      const gy = Math.round(cy + (tRng(q, r, i * 2 + 1) - 0.5) * s);
+      ctx.fillRect(gx, gy, 2, 2);
+    }
+  } else if (type === 'forest') {
+    for (let i = 0; i < 3; i++) {
+      const tx = Math.round(cx + (tRng(q, r, i * 5) - 0.5) * s * 1.4);
+      const ty = Math.round(cy + (tRng(q, r, i * 5 + 1) - 0.5) * s);
+      ctx.fillStyle = '#2a7028'; // tree crown
+      ctx.fillRect(tx - 2, ty,     4, 1);
+      ctx.fillRect(tx - 1, ty - 1, 3, 1);
+      ctx.fillRect(tx,     ty - 2, 1, 1);
+      ctx.fillStyle = '#4a2c10'; // trunk
+      ctx.fillRect(tx, ty + 1, 1, 2);
+    }
+  } else if (type === 'swamp') {
+    ctx.fillStyle = '#8060b0';
+    for (let i = 0; i < 4; i++) {
+      const gx = Math.round(cx + (tRng(q, r, i * 2) - 0.5) * s * 1.5);
+      const gy = Math.round(cy + (tRng(q, r, i * 2 + 1) - 0.5) * s);
+      ctx.fillRect(gx, gy, 2, 1);
+      ctx.fillRect(gx + 1, gy + 1, 2, 1);
+    }
+  } else if (type === 'darkwood') {
+    for (let i = 0; i < 2; i++) {
+      const tx = Math.round(cx + (tRng(q, r, i * 4) - 0.5) * s * 1.3);
+      const ty = Math.round(cy + (tRng(q, r, i * 4 + 1) - 0.5) * s);
+      ctx.fillStyle = '#204820';
+      ctx.fillRect(tx - 2, ty + 1, 4, 1);
+      ctx.fillRect(tx - 1, ty,     3, 1);
+      ctx.fillRect(tx,     ty - 1, 1, 1);
+      ctx.fillStyle = '#2e1808';
+      ctx.fillRect(tx, ty + 2, 1, 2);
+    }
+  } else if (type === 'dead') {
+    ctx.fillStyle = '#806050';
+    for (let i = 0; i < 2; i++) {
+      const tx = Math.round(cx + (tRng(q, r, i * 4) - 0.5) * s * 1.3);
+      const ty = Math.round(cy + (tRng(q, r, i * 4 + 1) - 0.5) * s);
+      ctx.fillRect(tx, ty - 3, 1, 6); // trunk
+      ctx.fillRect(tx - 2, ty - 1, 2, 1); // left branch
+      ctx.fillRect(tx + 1, ty - 2, 2, 1); // right branch
+    }
+  } else if (type === 'volcanic') {
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = tRng(q, r, i + 7) > 0.5 ? '#ff4010' : '#ff8020';
+      const gx = Math.round(cx + (tRng(q, r, i * 2) - 0.5) * s * 1.5);
+      const gy = Math.round(cy + (tRng(q, r, i * 2 + 1) - 0.5) * s);
+      ctx.fillRect(gx, gy, 2, 2);
+    }
+  }
+  ctx.restore();
+}
 
 function buildMap() {
   tiles.clear();
   // 19×11 grid: q∈[-9,9], r∈[-5,5]
   for (let r = -5; r <= 5; r++) {
     for (let q = -9; q <= 9; q++) {
-      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false, road: false });
+      let terrain;
+      if (r === 0) terrain = 'road';
+      else if (q > 3)          terrain = r < 0 ? 'plains' : 'grass';
+      else if (Math.abs(q) <= 3) terrain = r < 0 ? 'darkwood' : 'swamp';
+      else                     terrain = r < 0 ? 'volcanic' : 'dead';
+      tiles.set(tkey(q, r), { q, r, poi: false, stack: null, revealed: false, road: false, terrain });
     }
   }
   // Mark and reveal the Glory Road (r=0)
@@ -474,19 +709,20 @@ let luck = 0;      // kingdom luck stat — each point adds 5% to all % abilitie
 let townhallLevel = 0, cardsPerTurn = 3;
 let hotSpringTarget = null; // card id currently selected in hot spring UI
 let spellTier = 1;  // highest accessible spell tier (Academy raises it)
-let army = { q: 9, r: 0, movesLeft: 3 };
+let army = null;
 let hand = [];         // [{ id, name, atk, def, dying }]
 let cardIdSeq = 0;
 let selected = false;
 let phase = 'playing'; // 'playing' | 'capturing' | 'war' | 'waiting'
 let captureTarget = null;
 let committed = new Set(); // card ids selected for capture or war
+let raiseSet   = new Set(); // card ids selected when raising an army
 // reachable: Map<tkey, steps_cost>
 let reachable = new Map();
 
 // ── BFS reachable ─────────────────────────────────────────────────────────
 function computeReachable() {
-  if (!selected || army.movesLeft === 0) return new Map();
+  if (!army || !selected || army.movesLeft === 0) return new Map();
   const costs = new Map([[tkey(army.q, army.r), 0]]);
   const queue = [{ q: army.q, r: army.r, steps: 0 }];
   while (queue.length) {
@@ -749,6 +985,7 @@ const BUILDING_DEFS = [
   // ── Tier 2 ───────────────────────────────────────────────────────────────
   {
     type: 'building', tier: 2, id: 'bank', name: 'Bank', cost: 6,
+    requires: 'marketplace',
     desc: '+3 gold income per turn.',
     onBuild: () => { goldIncome += 3; },
   },
@@ -769,11 +1006,13 @@ const BUILDING_DEFS = [
   },
   {
     type: 'building', tier: 2, id: 'garrison', name: 'Garrison', cost: 6,
+    requires: 'barracks',
     desc: 'Adds Shieldbearer and Berserker (T2) to Townhall pool.',
     onBuild: () => { unitPool.push(UNIT_DEFS.Shieldbearer); unitPool.push(UNIT_DEFS.Berserker); },
   },
   {
     type: 'building', tier: 2, id: 'lodge', name: 'Lodge', cost: 6,
+    requires: 'hut',
     desc: '+2 supply cap.',
     onBuild: () => { supply += 2; },
   },
@@ -787,7 +1026,8 @@ function buildBuilding(id) {
   def.onBuild();
   log(`Built ${def.name}.`);
   update();
-  renderBuildPanel();
+  if (!document.getElementById('townoverlay').classList.contains('hidden')) renderTownBuildings();
+  else renderBuildPanel();
 }
 
 function trainUnit(unitName, stat) {
@@ -801,12 +1041,13 @@ function trainUnit(unitName, stat) {
   const comp = stat === 'atk' ? 'tAtk' : 'tDef';
   hand.forEach(c => { if (c.name === unitName && !c.dying) { c[comp]++; recompute(c); } });
   update();
-  renderBuildPanel();
+  if (!document.getElementById('townoverlay').classList.contains('hidden')) renderTownBuildings();
+  else renderBuildPanel();
   renderHand();
 }
 
 function openTownhallUp() {
-  closeBuild();
+  closeTown(); closeBuild();
   document.getElementById('townhallupoverlay').classList.remove('hidden');
 }
 function closeTownhallUp() {
@@ -859,6 +1100,334 @@ function applyHotSpring(type) {
 function closeHotSpring() {
   hotSpringTarget = null;
   document.getElementById('hotspringoverlay').classList.add('hidden');
+}
+
+// ── Town Screen ───────────────────────────────────────────────────────────
+function drawTownScene(tc) {
+  const c = tc.getContext('2d');
+  tc.width  = tc.offsetWidth  || 900;
+  tc.height = tc.offsetHeight || 320;
+  const W = tc.width, H = tc.height;
+
+  // ── Sky ──────────────────────────────────────────────────────────────────
+  const sky = c.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#020310'); sky.addColorStop(0.55, '#0b0b24'); sky.addColorStop(1, '#14102c');
+  c.fillStyle = sky; c.fillRect(0, 0, W, H);
+
+  // Stars — square pixels for that retro look
+  for (let i = 0; i < 220; i++) {
+    const sx = Math.random() * W, sy = Math.random() * H * 0.82;
+    const v  = Math.random();
+    const sz = v > 0.93 ? 2 : v > 0.7 ? 1 : 0.5;
+    c.fillStyle = `rgba(200,215,255,${0.3 + v * 0.7})`;
+    c.fillRect(sx, sy, sz, sz);
+  }
+  // Cross-sparkle stars
+  for (let i = 0; i < 10; i++) {
+    const sx = Math.random() * W, sy = Math.random() * H * 0.65;
+    c.fillStyle = 'rgba(255,255,230,0.9)';
+    c.fillRect(sx - 3, sy, 6, 1); c.fillRect(sx, sy - 3, 1, 6);
+    c.fillStyle = 'rgba(255,255,255,0.4)';
+    c.fillRect(sx - 5, sy, 10, 1); c.fillRect(sx, sy - 5, 1, 10);
+  }
+
+  // Aurora bands (subtle)
+  c.save(); c.globalAlpha = 0.05;
+  [['#6030c0', 0.2, 0.12], ['#2040a0', 0.55, 0.16]].forEach(([col, cx, cy]) => {
+    c.fillStyle = col;
+    c.beginPath(); c.ellipse(W * cx, H * cy, W * 0.3, H * 0.1, 0.2, 0, Math.PI * 2); c.fill();
+  });
+  c.restore();
+
+  // Moon
+  const mr = Math.min(W, H) * 0.072, mx = W * 0.81, my = H * 0.17;
+  const halo = c.createRadialGradient(mx, my, 0, mx, my, mr * 3.8);
+  halo.addColorStop(0, 'rgba(180,210,255,0.14)'); halo.addColorStop(0.4, 'rgba(80,120,255,0.05)'); halo.addColorStop(1, 'transparent');
+  c.fillStyle = halo; c.beginPath(); c.arc(mx, my, mr * 3.8, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#ccd8f2'; c.beginPath(); c.arc(mx, my, mr, 0, Math.PI * 2); c.fill();
+  // crescent shadow
+  c.fillStyle = 'rgba(8,6,28,0.38)'; c.beginPath(); c.arc(mx + mr * 0.28, my - mr * 0.08, mr * 0.82, 0, Math.PI * 2); c.fill();
+  // craters
+  [[-0.22, 0.12, 0.12], [0.32, -0.28, 0.08], [0.38, 0.38, 0.06]].forEach(([dx, dy, cr]) => {
+    c.fillStyle = 'rgba(90,100,160,0.22)'; c.beginPath(); c.arc(mx + dx * mr, my + dy * mr, cr * mr, 0, Math.PI * 2); c.fill();
+  });
+
+  // Mountains — two layers
+  const mtns = [
+    { color: '#0c0a20', pts: [[0,0.56],[0.09,0.36],[0.17,0.48],[0.26,0.30],[0.37,0.43],[0.47,0.34],[0.56,0.27],[0.66,0.40],[0.74,0.31],[0.83,0.44],[0.91,0.37],[1,0.52]], bot: 0.62 },
+    { color: '#130f28', pts: [[0,0.67],[0.07,0.52],[0.14,0.63],[0.21,0.47],[0.29,0.59],[0.37,0.50],[0.44,0.66],[0.50,0.54],[0.56,0.65],[0.63,0.51],[0.70,0.63],[0.78,0.50],[0.85,0.63],[0.92,0.55],[1,0.67]], bot: 0.74 },
+  ];
+  mtns.forEach(({ color, pts, bot }) => {
+    c.fillStyle = color; c.beginPath(); c.moveTo(0, H * bot);
+    pts.forEach(([px, py]) => c.lineTo(W * px, H * py));
+    c.lineTo(W, H * bot); c.closePath(); c.fill();
+  });
+
+  // Ground
+  const ground = c.createLinearGradient(0, H * 0.74, 0, H);
+  ground.addColorStop(0, '#1a2612'); ground.addColorStop(1, '#0d160a');
+  c.fillStyle = ground; c.fillRect(0, H * 0.74, W, H * 0.26);
+
+  // Stone path (perspective trapezoid)
+  const pW = W * 0.13;
+  c.fillStyle = '#2e261a';
+  c.beginPath();
+  c.moveTo(W/2 - pW * 0.4, H * 0.74); c.lineTo(W/2 + pW * 0.4, H * 0.74);
+  c.lineTo(W/2 + pW, H); c.lineTo(W/2 - pW, H); c.closePath(); c.fill();
+  // Path cobblestone lines
+  c.strokeStyle = '#221e14'; c.lineWidth = 1;
+  for (let y = H * 0.76; y < H; y += 14) {
+    const blend = (y - H * 0.74) / (H * 0.26);
+    const x0 = W/2 - (pW * 0.4 + (pW * 0.6) * blend);
+    const x1 = W/2 + (pW * 0.4 + (pW * 0.6) * blend);
+    c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke();
+  }
+
+  // ── Castle ────────────────────────────────────────────────────────────────
+  const S1 = '#30283c', S2 = '#1e1828', S3 = '#3e3650', WIN = '#d8a818';
+  const CX = W / 2, FY = H * 0.75;
+  const bW = 12, bH = 16, bGap = 8;
+
+  function stoneRows(ctx, x, y, w, h, col) {
+    ctx.strokeStyle = col; ctx.lineWidth = 1;
+    for (let ry = y + 10; ry < y + h; ry += 12) {
+      ctx.beginPath(); ctx.moveTo(x, ry); ctx.lineTo(x + w, ry); ctx.stroke();
+    }
+  }
+  function battlements(ctx, x, y, w, col) {
+    for (let bx = x + 2; bx < x + w - bW + 2; bx += bW + bGap) {
+      ctx.fillStyle = col; ctx.fillRect(bx, y - bH, bW, bH);
+      ctx.strokeStyle = S2; ctx.lineWidth = 1; ctx.strokeRect(bx, y - bH, bW, bH);
+    }
+  }
+  function glowWindow(ctx, wx, wy, ww, wh) {
+    ctx.fillStyle = '#06040e'; ctx.fillRect(wx - 1, wy - 1, ww + 2, wh + 2);
+    ctx.shadowColor = '#ffc020'; ctx.shadowBlur = 14;
+    ctx.fillStyle = WIN; ctx.fillRect(wx, wy, ww, wh);
+    ctx.shadowBlur = 0;
+  }
+
+  // === Side towers ===
+  const wallW = W * 0.72, wallH = H * 0.30;
+  const wallX = CX - wallW / 2, wallY = FY - wallH;
+  const tW = W * 0.095, tH = H * 0.52;
+
+  [[wallX, false], [wallX + wallW, true]].forEach(([tx, right]) => {
+    const tX = right ? tx - tW : tx, tY = FY - tH;
+    c.fillStyle = S2; c.fillRect(tX - 3, tY - 3, tW + 6, tH + 3);
+    c.fillStyle = S1; c.fillRect(tX, tY, tW, tH);
+    stoneRows(c, tX, tY, tW, tH, S2);
+    battlements(c, tX, tY, tW, S1);
+    [[0.5, 0.18], [0.5, 0.46], [0.5, 0.73]].forEach(([dx, dy]) =>
+      glowWindow(c, tX + dx * tW - 4, tY + dy * tH - 7, 8, 12));
+    // Torch
+    const torchX = right ? tX + tW * 0.22 : tX + tW * 0.78, torchY = tY + tH * 0.06;
+    c.fillStyle = '#4a2808'; c.fillRect(torchX - 1, torchY + 5, 3, 10);
+    c.shadowColor = '#ff6a00'; c.shadowBlur = 20;
+    c.fillStyle = '#ff4800'; c.beginPath(); c.arc(torchX, torchY + 3, 5, 0, Math.PI * 2); c.fill();
+    c.shadowColor = '#ffe040'; c.shadowBlur = 8;
+    c.fillStyle = '#ffe040'; c.beginPath(); c.arc(torchX, torchY + 2, 2.5, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+  });
+
+  // === Main wall ===
+  c.fillStyle = S2; c.fillRect(wallX - 2, wallY - 2, wallW + 4, wallH + 2);
+  c.fillStyle = S1; c.fillRect(wallX, wallY, wallW, wallH);
+  stoneRows(c, wallX, wallY, wallW, wallH, S2);
+  // Wall battlements (skip keep area)
+  for (let bx = wallX + 4; bx < wallX + wallW - bW; bx += bW + bGap) {
+    if (Math.abs(bx + bW / 2 - CX) < W * 0.1) continue;
+    c.fillStyle = S1; c.fillRect(bx, wallY - bH, bW, bH);
+    c.strokeStyle = S2; c.lineWidth = 1; c.strokeRect(bx, wallY - bH, bW, bH);
+  }
+  // Arrow slits on wall
+  for (let sx = wallX + 35; sx < wallX + wallW - 25; sx += 58) {
+    if (Math.abs(sx - CX) < W * 0.11) continue;
+    c.fillStyle = '#080612'; c.fillRect(sx - 3, wallY + wallH * 0.28, 6, 14);
+    c.fillStyle = 'rgba(180,140,20,0.2)'; c.fillRect(sx - 2, wallY + wallH * 0.29, 4, 12);
+  }
+
+  // === Central keep ===
+  const kW = W * 0.19, kH = H * 0.68;
+  const kX = CX - kW / 2, kY = FY - kH;
+  c.fillStyle = S2; c.fillRect(kX - 3, kY - 3, kW + 6, kH + 3);
+  c.fillStyle = S1; c.fillRect(kX, kY, kW, kH);
+  stoneRows(c, kX, kY, kW, kH, S2);
+  battlements(c, kX, kY, kW, S3);
+  // Keep windows (arched glow)
+  [[0.5, 0.1], [0.28, 0.28], [0.72, 0.28], [0.5, 0.46], [0.28, 0.64], [0.72, 0.64]].forEach(([dx, dy]) =>
+    glowWindow(c, kX + dx * kW - 5, kY + dy * kH - 9, 10, 16));
+  // Flag pole + pennant
+  c.fillStyle = '#b09020'; c.fillRect(CX - 1, kY - bH - 30, 2, 30);
+  c.fillStyle = '#a81818';
+  c.beginPath(); c.moveTo(CX + 1, kY - bH - 28); c.lineTo(CX + 22, kY - bH - 20); c.lineTo(CX + 1, kY - bH - 12); c.closePath(); c.fill();
+
+  // === Gate ===
+  const gW = W * 0.095, gH = H * 0.22;
+  const gX = CX - gW / 2, gY = FY - gH;
+  c.fillStyle = '#060410';
+  c.beginPath(); c.rect(gX, gY + gH * 0.28, gW, gH * 0.72); c.fill();
+  c.beginPath(); c.arc(CX, gY + gH * 0.28, gW / 2, Math.PI, 0); c.fill();
+  // Portcullis bars
+  c.strokeStyle = '#1a1212'; c.lineWidth = 2.5;
+  for (let gx = gX + 6; gx < gX + gW; gx += 9) {
+    c.beginPath(); c.moveTo(gx, gY + gH * 0.3); c.lineTo(gx, FY); c.stroke();
+  }
+  for (let gy = gY + gH * 0.34; gy < FY; gy += 16) {
+    c.beginPath(); c.moveTo(gX, gy); c.lineTo(gX + gW, gy); c.stroke();
+  }
+  // Gate arch highlight
+  c.fillStyle = S3; c.fillRect(CX - 5, gY + gH * 0.24, 10, 7);
+  // Torchlight inside gate
+  c.shadowColor = '#ff8000'; c.shadowBlur = 25;
+  c.fillStyle = 'rgba(255,140,0,0.08)';
+  c.beginPath(); c.arc(CX, FY - gH * 0.15, gW * 0.5, 0, Math.PI * 2); c.fill();
+  c.shadowBlur = 0;
+}
+
+function renderTownBuildings() {
+  const scroll = document.getElementById('townbuildscroll');
+  scroll.innerHTML = '';
+
+  const ICONS = {
+    barracks:'⚔', archery:'🏹', thieves:'🗡', marketplace:'💰',
+    training:'💪', school:'📜', hut:'🏚', bank:'💎',
+    hotspring:'♨', academy:'🔮', garrison:'🛡', lodge:'🏕',
+  };
+
+  // Refresh header stats
+  document.getElementById('tGold').textContent   = gold;
+  document.getElementById('tMana').textContent   = mana;
+  document.getElementById('tSupply').textContent = `${hand.filter(c=>!c.dying).length}/${supply}`;
+
+  function makeConnector() {
+    const c = document.createElement('div');
+    c.className = 'skill-connector';
+    return c;
+  }
+
+  // Three branches
+  const branches = [
+    {
+      title: '⚔ Military',
+      nodes: [
+        { id:'barracks',  name:'Barracks',      cost:4, desc:'Adds Warrior to pool.' },
+        { id:'archery',   name:'Archery Range',  cost:4, desc:'Adds Archer to pool.' },
+        { id:'thieves',   name:'Thieves Guild',  cost:4, desc:'Adds Assassin to pool.' },
+        null, // separator
+        { id:'garrison',  name:'Garrison',       cost:6, desc:'Adds Shieldbearer & Berserker.', requires:'barracks', tier:2 },
+      ],
+    },
+    {
+      title: '💰 Economy',
+      nodes: [
+        { id:'marketplace', name:'Marketplace', cost:4, desc:'+2 gold income/turn.' },
+        { id:'hut',         name:'Hut',         cost:4, desc:'+1 supply cap.' },
+        null,
+        { id:'bank',  name:'Bank',  cost:6, desc:'+3 gold income/turn.', requires:'marketplace', tier:2 },
+        { id:'lodge', name:'Lodge', cost:6, desc:'+2 supply cap.',        requires:'hut',         tier:2 },
+        null,
+        { id:'hotspring', name:'Hot Spring', cost:6, desc:'Permanently boost a unit stat.', tier:2 },
+      ],
+    },
+    {
+      title: '📖 Knowledge',
+      nodes: [
+        { id:'school',   name:'School',          cost:4, desc:'Unlocks mana, Apprentice & T1 spells.' },
+        { id:'training', name:'Training Ground', cost:4, desc:'Upgrade unit stats permanently.' },
+        null,
+        { id:'academy',  name:'Academy', cost:6, desc:'Unlocks Mage & Priest. +1 spell tier.', requires:'school', tier:2 },
+        null,
+        { id:'townhall', name:'Townhall', icon:'🏰', cost:6, desc:`Draws ${cardsPerTurn} cards/turn.`,
+          builtOverride: true, actionHtml: `<div class="skill-node-actions"><button class="ubtn" onclick="openTownhallUp()" ${gold<6?'disabled':''}>Upgrade (6g)</button></div>` },
+      ],
+    },
+  ];
+
+  for (const branch of branches) {
+    const col = document.createElement('div');
+    col.className = 'skill-branch';
+
+    const title = document.createElement('div');
+    title.className = 'skill-branch-title';
+    title.textContent = branch.title;
+    col.appendChild(title);
+
+    let prevWasNode = false;
+    for (const b of branch.nodes) {
+      if (!b) { prevWasNode = false; continue; }
+      if (prevWasNode) col.appendChild(makeConnector());
+
+      // Resolve against BUILDING_DEFS for onBuild logic, use branch data for display
+      const builtState = b.builtOverride || buildings.has(b.id);
+      const blocked = b.requires && !buildings.has(b.requires);
+      const canAfford = !builtState && !blocked && gold >= b.cost;
+      const state = builtState ? 'sn-built' : blocked ? 'sn-locked' : 'sn-available';
+
+      const node = document.createElement('div');
+      node.className = `skill-node ${state}`;
+      const icon = b.icon || ICONS[b.id] || '🏗';
+      const tierBadge = b.tier === 2 ? ' <span style="font-size:9px;color:#6050a0">[T2]</span>' : '';
+
+      let html = `<div class="skill-node-icon">${icon}</div>
+        <div class="skill-node-name">${b.name}${tierBadge}</div>
+        <div class="skill-node-desc">${b.desc}</div>`;
+
+      if (builtState) {
+        html += `<div class="skill-node-status">✓ Built</div>`;
+        if (b.actionHtml) html += b.actionHtml;
+      } else if (blocked) {
+        const reqDef = BUILDING_DEFS.find(x => x.id === b.requires);
+        html += `<div class="skill-node-locked-label">🔒 ${reqDef ? reqDef.name : b.requires}</div>`;
+      } else {
+        html += `<div class="skill-node-cost">${b.cost}g</div>`;
+        if (canAfford) {
+          node.style.cursor = 'pointer';
+          node.onclick = ((_id) => () => buildBuilding(_id))(b.id);
+        }
+      }
+
+      // Special built actions
+      if (b.id === 'training' && builtState) {
+        const trainable = Object.values(UNIT_DEFS).filter(u => unitPool.some(p => p.name === u.name));
+        if (trainable.length) {
+          html += '<div class="skill-node-actions">';
+          for (const u of trainable) for (const stat of ['atk','def']) {
+            const lvl = trainingLevels[`${u.name}-${stat}`] || 0;
+            const cost = 1 + lvl;
+            html += `<div class="urow"><span>${u.name} +${stat.toUpperCase()} lv${lvl}</span>
+              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')" ${gold<cost?'disabled':''}>${cost}g</button></div>`;
+          }
+          html += '</div>';
+        }
+      }
+      if (b.id === 'hotspring' && builtState) {
+        const hasUnits = hand.some(c => !c.dying);
+        html += `<div class="skill-node-actions"><button class="ubtn" onclick="closeTown();openHotSpring()" ${!hasUnits?'disabled':''}>Use Hot Spring</button></div>`;
+      }
+      if (b.id === 'academy' && builtState) {
+        html += `<div style="font-size:10px;color:#3a4a5a;margin-top:4px">Spell research coming soon</div>`;
+      }
+
+      node.innerHTML = html;
+      col.appendChild(node);
+      prevWasNode = true;
+    }
+    scroll.appendChild(col);
+  }
+}
+
+function openTown() {
+  if (phase !== 'playing') { log('Finish current action first.'); return; }
+  renderTownBuildings();
+  document.getElementById('townoverlay').classList.remove('hidden');
+  const tc = document.getElementById('towncanvas');
+  drawTownScene(tc);
+}
+
+function closeTown() {
+  document.getElementById('townoverlay').classList.add('hidden');
+  update(); renderHand();
 }
 
 function openBuild() {
@@ -977,62 +1546,57 @@ function renderBuildPanel() {
 
 // ── Capture ───────────────────────────────────────────────────────────────
 function enterCapture(q, r) {
+  if (!army || !army.cards.length) {
+    log('You need an army with cards to capture a POI.');
+    return;
+  }
   phase = 'capturing';
   captureTarget = { q, r };
-  committed = new Set();
-  selected = false;
-  reachable = new Map();
-  const t = tiles.get(tkey(q, r));
-  log(`POI guarded by stack DEF ${t.stack}. Click cards to commit, then Capture!`);
+  selected = false; reachable = new Map();
+  const t   = tiles.get(tkey(q, r));
+  const atk = army.cards.reduce((s, c) => s + c.atk, 0);
+  log(`POI guarded by ~${t.stack} DEF. Your army ATK: ${atk}. ${atk > t.stack ? 'Victory likely!' : 'Might not be enough!'}`);
   updateCaptureBar();
-  renderHand();
   render();
 }
 
 function cancelCapture() {
-  phase = 'playing';
-  captureTarget = null;
-  committed = new Set();
+  phase = 'playing'; captureTarget = null;
   document.getElementById('capturebar').classList.remove('active');
-  log('Capture cancelled.');
-  renderHand();
+  log('Assault cancelled.');
+  render();
 }
 
 function updateCaptureBar() {
-  const t = tiles.get(tkey(captureTarget.q, captureTarget.r));
-  const totalAtk = hand.filter(c => committed.has(c.id) && !c.dying)
-                       .reduce((s, c) => s + c.atk, 0);
-  const needed = t.stack;
+  const t   = tiles.get(tkey(captureTarget.q, captureTarget.r));
+  const atk = army ? army.cards.reduce((s, c) => s + c.atk, 0) : 0;
   document.getElementById('captureinfo').textContent =
-    `Committed ATK: ${totalAtk} / Need: >${needed}`;
-  document.getElementById('capturebtn').disabled = totalAtk <= needed;
+    `Army ATK: ${atk}  /  Stack DEF: ~${t.stack}`;
+  document.getElementById('capturebtn').disabled = atk <= t.stack;
   document.getElementById('capturebar').classList.add('active');
 }
 
 function confirmCapture() {
-  const t = tiles.get(tkey(captureTarget.q, captureTarget.r));
-  const totalAtk = hand.filter(c => committed.has(c.id) && !c.dying)
-                       .reduce((s, c) => s + c.atk, 0);
-  if (totalAtk <= t.stack) return;
+  if (!army) return;
+  const t   = tiles.get(tkey(captureTarget.q, captureTarget.r));
+  const atk = army.cards.reduce((s, c) => s + c.atk, 0);
+  if (atk <= t.stack) return;
 
-  // Mark committed cards as dying
-  hand.forEach(c => { if (committed.has(c.id)) c.dying = true; });
+  // Army cards are spent fighting
+  army.cards.forEach(c => { c.dying = true; hand.push(c); });
+  army = null; // army dissolves after the battle
 
-  // Clear the POI stack (captured)
   t.poi = false; t.stack = null;
 
-  // Reward: 1 random unit from pool (fallback Warrior if pool empty)
+  // Reward
   const rewardPool = unitPool.length ? unitPool : [UNIT_DEFS.Warrior];
   const reward = makeCard(rewardPool[rng(0, rewardPool.length - 1)]);
   hand.push(reward);
 
-  phase = 'playing';
-  captureTarget = null;
-  committed = new Set();
+  phase = 'playing'; captureTarget = null;
   document.getElementById('capturebar').classList.remove('active');
-  log(`POI captured! ${reward.name} joined your forces. Committed units die next turn.`);
-  renderHand();
-  render();
+  log(`POI captured! ${reward.name} joins your forces. Army disbanded — raise a new one next turn.`);
+  update(); renderHand(); render();
 }
 
 // ── War Party ─────────────────────────────────────────────────────────────
@@ -1316,6 +1880,50 @@ function resolveSpellTarget(q, r) {
   update(); renderSpellBar(); render();
 }
 
+function createArmy() {
+  if (army) return;
+  if (phase !== 'playing') { log('Finish current action first.'); return; }
+  if (!hand.filter(c => !c.dying).length) { log('Need at least one card to raise an army.'); return; }
+  phase = 'raising';
+  raiseSet = new Set();
+  document.getElementById('raisebar').classList.add('active');
+  document.getElementById('armybtn').disabled = true;
+  log('Select cards from your hand to form the army, then click Raise Army.');
+  updateRaiseBar();
+  renderHand();
+}
+
+function updateRaiseBar() {
+  const count = raiseSet.size;
+  const atk   = hand.filter(c => raiseSet.has(c.id) && !c.dying).reduce((s, c) => s + c.atk, 0);
+  document.getElementById('raiseinfo').textContent =
+    count ? `${count} card${count > 1 ? 's' : ''} — ATK ${atk}` : 'Select cards to form the army';
+  document.getElementById('raisebtn').disabled = count === 0;
+}
+
+function cancelRaise() {
+  phase = 'playing';
+  raiseSet = new Set();
+  document.getElementById('raisebar').classList.remove('active');
+  document.getElementById('armybtn').disabled = false;
+  renderHand();
+}
+
+function confirmRaise() {
+  if (!raiseSet.size) return;
+  // Pull raised cards out of hand into army
+  const armyCards = hand.filter(c => raiseSet.has(c.id) && !c.dying);
+  hand = hand.filter(c => !raiseSet.has(c.id));
+  army = { q: PLAYER_CITY.q, r: PLAYER_CITY.r, movesLeft: 3, cards: armyCards };
+  revealAround(army.q, army.r, 2);
+  phase = 'playing';
+  raiseSet = new Set();
+  document.getElementById('raisebar').classList.remove('active');
+  document.getElementById('armybtn').disabled = false;
+  log(`Army raised with ${armyCards.length} unit${armyCards.length > 1 ? 's' : ''} (ATK ${armyCards.reduce((s, c) => s + c.atk, 0)}). Click ⚔ to move.`);
+  update(); render(); renderHand();
+}
+
 function enterWar() {
   if (phase !== 'playing') { log('Finish current action first.'); return; }
   if (gold < 1) { log('Need at least 1 gold to send a War Party.'); return; }
@@ -1466,7 +2074,7 @@ function advanceTurn() {
   gold += goldIncome;
   mana += manaIncome;
   turn++;
-  army.movesLeft = 3;
+  if (army) army.movesLeft = 3;
   const prevHandSize = hand.length;
   drawCards(cardsPerTurn);
   const drew = hand.length - prevHandSize;
@@ -1502,7 +2110,9 @@ function update() {
   document.getElementById('sTurn').textContent = turn;
   document.getElementById('sGold').textContent = gold;
   document.getElementById('sHealth').textContent = health;
-  document.getElementById('sMoves').textContent = army.movesLeft;
+  document.getElementById('sMoves').textContent = army ? army.movesLeft : '--';
+  document.getElementById('armybtn').style.display = army ? 'none' : '';
+  document.getElementById('armybtn').disabled = (phase === 'raising');
   document.getElementById('sGlory').textContent = gloryCoins;
   document.getElementById('sSupply').textContent = `${hand.filter(c => !c.dying).length}/${supply}`;
   if (manaIncome > 0) {
@@ -1513,10 +2123,11 @@ function update() {
   // Show enemy health label dynamically
   let enemyEl = document.getElementById('sEnemyHealth');
   if (!enemyEl) {
-    const span = document.createElement('span');
-    span.innerHTML = `Enemy <b id="sEnemyHealth">${enemyHealth}</b> ♥`;
-    span.style.color = '#e08080';
-    document.getElementById('endbtn').before(span);
+    const badge = document.createElement('div');
+    badge.className = 'hud-stat';
+    badge.style.borderColor = '#4a1a1a';
+    badge.innerHTML = `<span class="hud-icon">💀</span><span class="hud-label">Enemy</span><span class="hud-val" id="sEnemyHealth" style="color:#e08080">${enemyHealth}</span>`;
+    document.getElementById('endbtn').before(badge);
   } else {
     enemyEl.textContent = enemyHealth;
   }
@@ -1525,22 +2136,75 @@ function update() {
 function renderHand() {
   const el = document.getElementById('hand');
   el.innerHTML = '';
-  if (!hand.length) { el.textContent = 'Hand empty.'; return; }
-  for (const c of hand) {
-    const div = document.createElement('div');
+  if (!hand.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:#3a4a58;font-size:11px;padding:8px;align-self:center';
+    empty.textContent = 'No cards in hand.';
+    el.appendChild(empty);
+    return;
+  }
+  const ART_EMOJI = {
+    Peasant:'👨‍🌾', Warrior:'⚔', Archer:'🏹', Assassin:'🗡', Apprentice:'📖',
+    Shieldbearer:'🛡', Berserker:'🔱', Mage:'🔮', Priest:'✝', Knight:'🏇',
+  };
+  const total = hand.length;
+  for (let i = 0; i < total; i++) {
+    const c = hand[i];
     const isCommitted = committed.has(c.id);
     const isDefending = defenders.has(c.id);
+    const inRaise     = raiseSet.has(c.id);
+
     let cls = 'card';
-    if (c.dying) cls += ' dying';
-    else if (isCommitted) cls += ' committed';
-    else if (isDefending) cls += ' defending';
+    if (c.dying)                      cls += ' dying';
+    else if (phase === 'raising' && inRaise) cls += ' committed';
+    else if (isCommitted)             cls += ' committed';
+    else if (isDefending)             cls += ' defending';
+
+    const div = document.createElement('div');
     div.className = cls;
-    const bonus = (c.tAtk + c.gAtk > 0 ? ' ↑' : '') + (c.tDef + c.gDef > 0 ? ' ↑' : '');
-    div.innerHTML = `<b>${c.dying ? '† ' : ''}${c.name}</b>` +
-      `<span style="color:#484f58;font-size:10px">T${c.tier} · ${c.cost}g</span>` +
-      `<span>ATK ${c.atk}  DEF ${c.def}${bonus}</span>` +
-      `<span style="color:#3a4a5a;font-size:10px">${c.tags.join(' · ')}</span>`;
-    if ((phase === 'capturing' || phase === 'war') && !c.dying) {
+
+    // Fan rotation
+    if (!c.dying) {
+      const spread = Math.min(3.5, total * 0.5);
+      const angle  = total > 1 ? ((i / (total - 1)) - 0.5) * spread * 2 : 0;
+      const yOff   = total > 1 ? Math.abs((i / (total - 1)) - 0.5) * 10 : 0;
+      div.style.transform = `rotate(${angle}deg) translateY(${yOff}px)`;
+    }
+
+    // Art section
+    const artType  = c.tags.includes('Magic') ? 'magic' : c.tags.includes('Physical') ? 'physical' : 'utility';
+    const artEmoji = ART_EMOJI[c.name] || '?';
+    const upAtk = c.tAtk + c.gAtk, upDef = c.tDef + c.gDef;
+    const upBadge = (upAtk > 0 || upDef > 0)
+      ? `<div class="card-upbadge">${upAtk > 0 ? `⚔+${upAtk}` : ''}${upDef > 0 ? ` 🛡+${upDef}` : ''}</div>`
+      : '';
+    const dyingMark = c.dying ? '<span style="color:#ff4040;font-size:9px;position:absolute;top:3px;right:5px">†</span>' : '';
+
+    div.innerHTML = `
+      ${dyingMark}
+      <div class="card-top">
+        <span class="card-cost">${c.cost}g</span>
+        <span class="card-tier">T${c.tier}</span>
+      </div>
+      <div class="card-art ${artType}">${artEmoji}</div>
+      <div class="card-name">${c.name}</div>
+      <div class="card-stats">
+        <span class="atk">⚔${c.atk}</span>
+        <span class="def">🛡${c.def}</span>
+      </div>
+      <div class="card-tags">${c.tags.slice(0, 2).join('·')}</div>
+      ${upBadge}
+    `;
+
+    // Click handlers
+    if (phase === 'raising' && !c.dying) {
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        if (raiseSet.has(c.id)) raiseSet.delete(c.id);
+        else raiseSet.add(c.id);
+        updateRaiseBar(); renderHand();
+      };
+    } else if ((phase === 'capturing' || phase === 'war') && !c.dying) {
       div.style.cursor = 'pointer';
       div.onclick = () => {
         if (committed.has(c.id)) committed.delete(c.id);
@@ -1558,6 +2222,7 @@ function renderHand() {
         renderHand();
       };
     }
+
     el.appendChild(div);
   }
 }
@@ -1604,12 +2269,12 @@ function render() {
       );
 
     if (!t.revealed) {
-      ctx.fillStyle = isFire ? '#3a1000' : '#0d1117';
+      ctx.fillStyle = isFire ? '#3a1000' : '#080c10';
       ctx.fill();
       ctx.strokeStyle = spellHighlight
         ? (activeSpell === 'meteor' ? '#ff6020' : '#8060d0')
-        : (isFire ? '#803010' : '#1c2128');
-      ctx.lineWidth = spellHighlight ? 2 : 1;
+        : (isFire ? '#803010' : '#111820');
+      ctx.lineWidth = spellHighlight ? 2 : 0.5;
       ctx.stroke();
       if (isFire) {
         ctx.fillStyle = '#ff4000';
@@ -1620,38 +2285,47 @@ function render() {
       continue;
     }
 
-    // Zone tinting: middle = danger tint, enemy = dark red tint
-    let fill = '#12202e';
-    if (Math.abs(t.q) <= 3)  fill = '#1e1818';
-    if (t.q < -3)            fill = '#1a1215';
-    if (t.poi)   fill = '#132613';
-    if (isReach) fill = '#0e2e30';
-    if (isFire)  fill = '#2a0e00';
-    ctx.fillStyle = fill;
+    // ── Terrain fill ──
+    const ts = TERRAIN[t.terrain] || TERRAIN.grass;
+    let baseFill = isFire ? '#3a1000' : ts.fill;
+    ctx.fillStyle = baseFill;
     ctx.fill();
 
-    let strokeColor = isReach ? '#38a8a8' : '#263040';
-    let strokeWidth = isReach ? 2 : 1;
-    if (spellHighlight) {
-      strokeColor = activeSpell === 'meteor' ? '#ff6020' : activeSpell === 'vision' ? '#8060d0' : '#40c0c0';
-      strokeWidth = 2;
+    // Reachable overlay (tinted over terrain)
+    if (isReach && !isFire) {
+      ctx.fillStyle = 'rgba(40,220,190,0.28)';
+      hexPath(cx, cy);
+      ctx.fill();
     }
-    if (isFire) { strokeColor = '#d04000'; strokeWidth = 2; }
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = strokeWidth;
-    ctx.stroke();
 
+    // ── Stroke ──
+    let strokeColor = ts.stroke, strokeWidth = 1;
+    if (isReach)        { strokeColor = '#30e8c0'; strokeWidth = 2; }
+    if (spellHighlight) { strokeColor = activeSpell === 'meteor' ? '#ff6020' : activeSpell === 'vision' ? '#9060e0' : '#40c0c0'; strokeWidth = 2; }
+    if (isFire)         { strokeColor = '#e04000'; strokeWidth = 2; }
+    ctx.strokeStyle = strokeColor; ctx.lineWidth = strokeWidth;
+    hexPath(cx, cy); ctx.stroke();
+
+    // ── Pixel art terrain detail ──
+    if (!isFire && t.terrain && t.terrain !== 'road') {
+      drawTerrainDetail(cx, cy, t.q, t.r, t.terrain);
+    }
+
+    // ── Overlays ──
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (isFire) {
-      ctx.fillStyle = '#ff4000';
-      ctx.font = `${Math.floor(SIZE * 0.4)}px monospace`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `${Math.floor(SIZE * 0.42)}px monospace`;
       ctx.fillText('🔥', cx, cy);
-    } else if (t.poi) {
-      ctx.fillStyle = '#f0c040';
-      ctx.font = `bold ${Math.floor(SIZE * 0.36)}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`~${t.stack}`, cx, cy);
+    } else if (t.poi && t.stack !== null) {
+      // Zone-coded POI glow
+      const zone = t.q > 3 ? '#60e060' : Math.abs(t.q) <= 3 ? '#e8c030' : '#e05050';
+      ctx.shadowColor = zone; ctx.shadowBlur = 10;
+      ctx.strokeStyle = zone; ctx.lineWidth = 1.5;
+      hexPath(cx, cy); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = zone;
+      ctx.font = `bold ${Math.floor(SIZE * 0.38)}px monospace`;
+      ctx.fillText(`⚔${t.stack}`, cx, cy);
     }
   }
 
@@ -1717,21 +2391,32 @@ function render() {
   }
 
   // ── Player army (moveable) ────────────────────────────────────────────
-  {
+  if (army) {
     const { x, y } = h2p(army.q, army.r);
     const cx = ox + x, cy = oy + y;
-    ctx.beginPath();
-    ctx.arc(cx, cy, SIZE * 0.26, 0, Math.PI * 2);
-    ctx.fillStyle = selected ? '#5ab0f0' : '#2e8040';
+    const r2 = SIZE * 0.3;
+    // Glow ring when selected
+    if (selected) {
+      ctx.shadowColor = '#60d8ff'; ctx.shadowBlur = 14;
+    }
+    ctx.beginPath(); ctx.arc(cx, cy, r2, 0, Math.PI * 2);
+    ctx.fillStyle = selected ? '#3890d0' : '#20703a';
     ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.strokeStyle = selected ? '#90e8ff' : '#60e890';
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Sword icon
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(SIZE * 0.26)}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⚔', cx, cy);
+    ctx.font = `bold ${Math.floor(SIZE * 0.28)}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('⚔', cx, cy - SIZE * 0.04);
+    // Card count badge
+    const n = army.cards.length;
+    if (n > 0) {
+      ctx.fillStyle = '#ffdd40';
+      ctx.font = `bold ${Math.floor(SIZE * 0.2)}px monospace`;
+      ctx.fillText(`${n}`, cx, cy + SIZE * 0.15);
+    }
   }
 
   // ── Enemy city (always visible) ───────────────────────────────────────
@@ -1772,7 +2457,7 @@ canvas.addEventListener('click', e => {
 
   // While capturing: clicking army re-opens capture UI on current POI
   if (phase === 'capturing') {
-    if (q === army.q && r === army.r) {
+    if (army && q === army.q && r === army.r) {
       const t = tiles.get(tkey(army.q, army.r));
       if (t && t.poi) enterCapture(army.q, army.r);
     }
@@ -1780,7 +2465,7 @@ canvas.addEventListener('click', e => {
   }
 
   // Toggle army selection
-  if (q === army.q && r === army.r) {
+  if (army && q === army.q && r === army.r) {
     // If standing on an uncaptured POI, re-open capture instead of just selecting
     const here = tiles.get(k);
     if (here && here.poi && here.stack !== null) {
@@ -1959,7 +2644,7 @@ renderHand();
 if (!LOCAL_MODE) {
   initMultiplayer();
 } else {
-  log('Welcome! Click your army to explore the map. Use Attack to send a War Party. Build to grow your kingdom.');
+  log('Welcome! Press "Create Army" to raise your forces. Use Attack to send a War Party. Build to grow your kingdom.');
 }
 </script>
 </body>
