@@ -67,6 +67,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - All commits go directly to `main`.
 - Push after every logical chunk of work.
 - Do not create branches unless the user explicitly asks.
+- Before every commit, ensure: `git config user.email noreply@anthropic.com && git config user.name Claude`
 
 ---
 
