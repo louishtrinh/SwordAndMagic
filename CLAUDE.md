@@ -60,6 +60,14 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Git Workflow
+
+**Always work on `main`. Never create or push to feature branches.**
+
+- All commits go directly to `main`.
+- Push after every logical chunk of work.
+- Do not create branches unless the user explicitly asks.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

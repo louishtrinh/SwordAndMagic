@@ -15,50 +15,55 @@ body {
   overflow: hidden;
 }
 #topbar {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 6px 14px;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
-  font-size: 13px;
-  flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 10px; height: 46px;
+  background: linear-gradient(180deg, #1a2030 0%, #101620 100%);
+  border-bottom: 1px solid #243040;
+  flex-shrink: 0; overflow: hidden;
 }
-#topbar b { color: #f0c040; }
+.hud-stat {
+  display: flex; align-items: center; gap: 3px;
+  background: rgba(255,255,255,0.04); border: 1px solid #1e2e40;
+  border-radius: 4px; padding: 3px 7px; white-space: nowrap;
+}
+.hud-icon { font-size: 12px; }
+.hud-label { font-size: 10px; color: #4a6a88; }
+.hud-val { font-size: 13px; font-weight: bold; color: #c8dff0; }
+#topbar .hud-btn {
+  background: #111e2e; color: #7090b0; border: 1px solid #1e3348;
+  padding: 4px 9px; cursor: pointer; font-family: monospace; font-size: 11px;
+  border-radius: 3px; white-space: nowrap; transition: background 0.12s, color 0.12s;
+}
+#topbar .hud-btn:hover { background: #1a2e44; color: #a0c0e0; }
+#topbar .hud-btn.danger  { color: #d07070; border-color: #4a2020; }
+#topbar .hud-btn.danger:hover  { background: #241010; color: #ff9090; }
+#topbar .hud-btn.danger.active { background: #321010; border-color: #903030; color: #ffb0b0; }
+#topbar .hud-btn.success { color: #50c870; border-color: #1a4a28; }
+#topbar .hud-btn.success:hover { background: #0c1e14; }
 #endbtn {
   margin-left: auto;
-  background: #238636;
-  color: #fff;
-  border: none;
-  padding: 5px 18px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 13px;
+  background: #164a24; color: #70f090; border: 1px solid #228840;
+  padding: 5px 16px; cursor: pointer; font-family: monospace; font-size: 12px;
+  border-radius: 3px; transition: background 0.12s;
 }
-#endbtn:hover:not(:disabled) { background: #2ea043; }
-#endbtn:disabled { background: #2a3a2a; color: #6e9c6e; cursor: default; }
+#endbtn:hover:not(:disabled) { background: #1e6030; }
+#endbtn:disabled { background: #0e1e14; color: #3a6044; cursor: default; border-color: #1a3020; }
 canvas { flex: 1; display: block; width: 100%; }
 #bottombar {
-  background: #161b22;
-  border-top: 1px solid #30363d;
-  flex-shrink: 0;
+  background: #090d12; border-top: 2px solid #1a2838;
+  flex-shrink: 0; display: flex; flex-direction: column;
 }
 #logline {
-  font-size: 11px;
-  color: #8b949e;
-  padding: 3px 12px;
-  border-bottom: 1px solid #21262d;
+  font-size: 11px; color: #3a5068;
+  padding: 4px 14px; border-bottom: 1px solid #111a24;
 }
 #hand {
-  display: flex;
-  align-items: flex-end;
-  padding: 10px 20px 0;
-  gap: 0;
-  overflow-x: auto;
-  overflow-y: visible;
-  min-height: 140px;
-  scrollbar-width: thin;
-  scrollbar-color: #2a3848 #0d1117;
+  display: flex; align-items: flex-end;
+  padding: 26px 20px 8px; gap: 0;
+  overflow-x: auto; overflow-y: clip;
+  min-height: 152px; max-height: 172px;
+  scrollbar-width: thin; scrollbar-color: #1a2a3a #090d12;
+  background: linear-gradient(180deg, #08090e 0%, #090d12 100%);
 }
 .card {
   width: 78px;
@@ -129,71 +134,37 @@ canvas { flex: 1; display: block; width: 100%; }
   font-size: 8px; color: #80e080; text-align: center;
   padding: 0 4px 3px;
 }
-#capturebar {
-  display: none;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 12px;
-  background: #1a1200;
-  border-bottom: 1px solid #4a3800;
-  font-size: 12px;
-  color: #c8a040;
+/* ── Unified action bar ── */
+.action-bar {
+  display: none; align-items: center; gap: 10px;
+  padding: 6px 14px;
+  background: linear-gradient(90deg,#0a1018,#0d1420);
+  border-bottom: 1px solid #192536;
+  font-size: 11px;
 }
-#capturebar.active { display: flex; }
-#capturebtn {
-  background: #7a4000;
-  color: #ffd080;
-  border: 1px solid #a06000;
-  padding: 3px 12px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 12px;
+.action-bar.active { display: flex; }
+.action-bar .bar-label { flex: 1; font-weight: bold; }
+.action-bar .bar-sub   { font-size: 10px; opacity: 0.7; margin-left: 6px; }
+.bar-confirm {
+  padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 11px;
+  border-radius: 3px; border: 1px solid; transition: background 0.1s; font-weight: bold;
 }
-#capturebtn:disabled { background: #2a2010; color: #604020; cursor: default; border-color: #3a2800; }
-#cancelbtn {
-  background: transparent;
-  color: #8b949e;
-  border: 1px solid #30363d;
-  padding: 3px 10px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 12px;
+.bar-confirm:disabled { opacity: 0.3; cursor: default; }
+.bar-cancel {
+  background: transparent; color: #3a5068; border: 1px solid #1a2a38;
+  padding: 3px 10px; cursor: pointer; font-family: monospace; font-size: 11px;
+  border-radius: 3px;
 }
-/* ── Raise Army bar ── */
-#raisebar {
-  display: none; align-items: center; gap: 12px;
-  padding: 4px 12px;
-  background: #0a1a0a; border-bottom: 1px solid #1a5a1a;
-  font-size: 12px; color: #80e080;
-}
-#raisebar.active { display: flex; }
-#raisebtn {
-  background: #1a5a1a; color: #a0ffb0; border: 1px solid #2a8a2a;
-  padding: 3px 12px; cursor: pointer; font-family: monospace; font-size: 12px;
-}
-#raisebtn:disabled { background: #0a1a0a; color: #306030; cursor: default; border-color: #1a3a1a; }
-/* ── War Party bar ── */
-#warbar {
-  display: none;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 12px;
-  background: #1a0808;
-  border-bottom: 1px solid #5a1010;
-  font-size: 12px;
-  color: #e08080;
-}
-#warbar.active { display: flex; }
-#warbtn {
-  background: #7a1010;
-  color: #ffb0b0;
-  border: 1px solid #a03030;
-  padding: 3px 12px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 12px;
-}
-#warbtn:disabled { background: #2a1010; color: #604040; cursor: default; border-color: #3a1818; }
+.bar-cancel:hover { color: #6a90a8; border-color: #2a3e52; }
+#capturebar { color: #d8a020; }
+#capturebar .bar-confirm { background:#4a2800; color:#ffd060; border-color:#886010; }
+#capturebar .bar-confirm:hover:not(:disabled) { background:#6a3a00; }
+#raisebar   { color: #50d870; }
+#raisebar   .bar-confirm { background:#143a18; color:#90ffb0; border-color:#228832; }
+#raisebar   .bar-confirm:hover:not(:disabled) { background:#1c5224; }
+#warbar     { color: #d86060; }
+#warbar     .bar-confirm { background:#380e0e; color:#ffa0a0; border-color:#882020; }
+#warbar     .bar-confirm:hover:not(:disabled) { background:#501414; }
 /* ── Combat result overlay ── */
 #combatoverlay {
   position: fixed; inset: 0;
@@ -231,7 +202,7 @@ canvas { flex: 1; display: block; width: 100%; }
   background: #010408;
 }
 #townoverlay.hidden { display: none; }
-#towncanvas { width: 100%; flex: 0 0 54%; display: block; }
+#towncanvas { width: 100%; flex: 0 0 68%; display: block; cursor: default; }
 #townbottom {
   flex: 1; display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(180deg, #0d1117 0%, #080c10 100%);
@@ -239,21 +210,34 @@ canvas { flex: 1; display: block; width: 100%; }
 }
 #townheader {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 7px 18px; border-bottom: 1px solid #1c2a38; flex-shrink: 0;
+  padding: 5px 14px; border-bottom: 1px solid #1c2a38; flex-shrink: 0;
 }
 #townheader h2 {
-  font-size: 15px; color: #c8a840; margin: 0;
-  font-family: monospace; letter-spacing: 3px; text-shadow: 0 0 12px #a08020;
+  font-size: 13px; color: #c8a840; margin: 0;
+  font-family: monospace; letter-spacing: 2px; text-shadow: 0 0 10px #a08020;
 }
-#townheader .townstats { font-size: 12px; color: #8b949e; display: flex; gap: 16px; }
+#townheader .townstats { font-size: 11px; color: #8b949e; display: flex; gap: 14px; }
 #townheader .townstats b { color: #f0c040; }
-#townbuildscroll {
-  flex: 1; overflow: auto;
-  padding: 12px 18px 14px;
-  display: flex;
-  gap: 0;
+#townpanel {
+  flex: 1; overflow-y: auto; padding: 8px 16px;
+  display: flex; flex-direction: column; gap: 5px;
   scrollbar-width: thin; scrollbar-color: #2a3848 #0d1117;
 }
+.tp-name { font-size: 13px; font-weight: bold; color: #c8a840; }
+.tp-desc { font-size: 11px; color: #7a8a9a; line-height: 1.4; }
+.tp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.tp-build-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.tp-opt {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 3px; font-size: 11px; border: 1px solid #1e2e3a;
+  transition: background 0.1s;
+}
+.tp-opt.tp-can { cursor: pointer; background: #0d1e10; border-color: #1e4a24; color: #90e090; }
+.tp-opt.tp-can:hover { background: #152a18; }
+.tp-opt.tp-poor { color: #3a5048; }
+.tp-opt.tp-lock { color: #2a3a28; }
+.tp-opt-icon { font-size: 14px; }
+.tp-opt-cost { font-size: 10px; margin-left: auto; color: #6a8a78; }
 .skill-branch {
   flex: 1; display: flex; flex-direction: column;
   border-right: 1px solid #1c2838;
@@ -339,14 +323,8 @@ canvas { flex: 1; display: block; width: 100%; }
 .ubtn { background: #1a3a1a; color: #70c070; border: 1px solid #2a5a2a; padding: 1px 7px; cursor: pointer; font-family: monospace; font-size: 10px; }
 .ubtn:disabled { background: #1a1a1a; color: #484f58; cursor: default; border-color: #30363d; }
 #closebuild { margin-top: 12px; background: transparent; color: #8b949e; border: 1px solid #30363d; padding: 4px 14px; cursor: pointer; font-family: monospace; font-size: 12px; }
-#buildbtn { background: #21262d; color: #c8c8c8; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
-#buildbtn:hover { background: #30363d; }
-#attackbtn { background: #21262d; color: #c06060; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
-#attackbtn:hover { background: #2a1010; }
-#attackbtn.active { background: #3a1010; border-color: #a03030; color: #ff9090; }
-#defendbtn { background: #21262d; color: #7090c0; border: 1px solid #30363d; padding: 5px 14px; cursor: pointer; font-family: monospace; font-size: 13px; }
-#defendbtn:hover { background: #161d28; }
-#defendbtn.active { background: #1a3a5a; border-color: #4070c0; color: #90c0f0; }
+#attackbtn.active { background: #3a1010; border-color: #903030; color: #ffb0b0; }
+#defendbtn.active { background: #0a1e3a; border-color: #2050a0; color: #90c0f0; }
 .card.defending { border-color: #4070c0; background: #101830; cursor: pointer; }
 #defensebar {
   display: none;
@@ -432,19 +410,19 @@ canvas { flex: 1; display: block; width: 100%; }
 </head>
 <body>
 <div id="topbar">
-  <span>Turn <b id="sTurn">1</b></span>
-  <span>Gold <b id="sGold">5</b></span>
-  <span>Health <b id="sHealth">10</b></span>
-  <span>Moves <b id="sMoves">3</b></span>
-  <span>Supply <b id="sSupply">0/6</b></span>
-  <span id="gloryDisplay" style="color:#f0c040">Glory <b id="sGlory">0</b> ✦</span>
-  <span id="manaDisplay" style="display:none">Mana <b id="sMana">0</b></span>
-  <button id="armybtn" onclick="createArmy()">Create Army</button>
-  <button id="attackbtn" onclick="enterWar()">Attack</button>
-  <button id="defendbtn" onclick="toggleDefenseMode()">Defend</button>
-  <button id="glorybtn" onclick="openGlory()">Glory Shop</button>
-  <button id="buildbtn" onclick="openTown()">Town</button>
-  <button id="endbtn" onclick="endTurn()">End Turn</button>
+  <div class="hud-stat"><span class="hud-icon">🔄</span><span class="hud-label">Turn</span><span class="hud-val" id="sTurn">1</span></div>
+  <div class="hud-stat"><span class="hud-icon">💰</span><span class="hud-label">Gold</span><span class="hud-val" id="sGold">5</span></div>
+  <div class="hud-stat"><span class="hud-icon">❤️</span><span class="hud-label">HP</span><span class="hud-val" id="sHealth">10</span></div>
+  <div class="hud-stat"><span class="hud-icon">👣</span><span class="hud-label">Moves</span><span class="hud-val" id="sMoves">3</span></div>
+  <div class="hud-stat"><span class="hud-icon">🃏</span><span class="hud-label">Supply</span><span class="hud-val" id="sSupply">0/6</span></div>
+  <div class="hud-stat" id="gloryDisplay"><span class="hud-icon">✦</span><span class="hud-label">Glory</span><span class="hud-val" id="sGlory" style="color:#f0c040">0</span></div>
+  <div class="hud-stat" id="manaDisplay" style="display:none"><span class="hud-icon">💧</span><span class="hud-label">Mana</span><span class="hud-val" id="sMana">0</span></div>
+  <button id="armybtn" class="hud-btn success" onclick="createArmy()">⚔ Army</button>
+  <button id="attackbtn" class="hud-btn danger" onclick="enterWar()">⚔ Attack</button>
+  <button id="defendbtn" class="hud-btn" onclick="toggleDefenseMode()">🛡 Defend</button>
+  <button id="glorybtn" class="hud-btn" onclick="openGlory()">✦ Glory</button>
+  <button id="buildbtn" class="hud-btn" onclick="openTown()">🏰 Town</button>
+  <button id="endbtn" onclick="endTurn()">End Turn ▶</button>
 </div>
 <div id="townoverlay" class="hidden">
   <canvas id="towncanvas"></canvas>
@@ -458,8 +436,8 @@ canvas { flex: 1; display: block; width: 100%; }
       </div>
       <button id="closetown" onclick="closeTown()">⬅ Leave Town</button>
     </div>
-    <div id="townbuildscroll">
-      <!-- building cards injected by renderTownBuildings() -->
+    <div id="townpanel">
+      <span style="color:#3a4a58;font-size:11px">Click a building to manage it — click an empty lot to construct.</span>
     </div>
   </div>
 </div>
@@ -509,20 +487,20 @@ canvas { flex: 1; display: block; width: 100%; }
 <canvas id="c"></canvas>
 <div id="bottombar">
   <div id="logline">Click your army (P) to select it, then click a highlighted tile to move.</div>
-  <div id="capturebar">
-    <span id="captureinfo"></span>
-    <button id="capturebtn" onclick="confirmCapture()" disabled>Capture!</button>
-    <button id="cancelbtn" onclick="cancelCapture()">Cancel</button>
+  <div id="capturebar" class="action-bar">
+    <span class="bar-label" id="captureinfo"></span>
+    <button class="bar-confirm" id="capturebtn" onclick="confirmCapture()" disabled>Capture!</button>
+    <button class="bar-cancel" onclick="cancelCapture()">Cancel</button>
   </div>
-  <div id="raisebar">
-    <span id="raiseinfo">Select cards to commit to the army</span>
-    <button id="raisebtn" onclick="confirmRaise()" disabled>Raise Army</button>
-    <button class="cancelbtn" onclick="cancelRaise()">Cancel</button>
+  <div id="raisebar" class="action-bar">
+    <span class="bar-label" id="raiseinfo">Select cards to commit to the army</span>
+    <button class="bar-confirm" id="raisebtn" onclick="confirmRaise()" disabled>Raise Army</button>
+    <button class="bar-cancel" onclick="cancelRaise()">Cancel</button>
   </div>
-  <div id="warbar">
-    <span id="warinfo"></span>
-    <button id="warbtn" onclick="launchWarParty()" disabled>Attack (1g)</button>
-    <button class="cancelbtn" onclick="cancelWar()">Cancel</button>
+  <div id="warbar" class="action-bar">
+    <span class="bar-label" id="warinfo"></span>
+    <button class="bar-confirm" id="warbtn" onclick="launchWarParty()" disabled>Attack (1g)</button>
+    <button class="bar-cancel" onclick="cancelWar()">Cancel</button>
   </div>
   <div id="defensebar">
     <span id="defenseinfo"></span>
@@ -901,6 +879,14 @@ const UNIT_DEFS = {
 // unitPool: array of def refs Townhall draws from (buildings add to this)
 let unitPool = [];
 let buildings = new Set(); // built building ids
+let buildingOrder = []; // non-townhall buildings in slot order (construction order)
+let townSelectedSlot = null; // null | 'townhall' | slot_index (number)
+let townHoverSlot    = null; // null | 'townhall' | slot_index (number)
+const BICONS = {
+  barracks:'⚔', archery:'🏹', thieves:'🗡', marketplace:'💰',
+  training:'💪', school:'📜', hut:'🏚', bank:'💎',
+  hotspring:'♨', academy:'🔮', garrison:'🛡', lodge:'🏕',
+};
 let goldIncome = 5;
 let mana = 0, manaIncome = 0;
 // trainingLevels: { 'Warrior-atk': n, 'Warrior-def': n, ... } — upgrade counts
@@ -1058,10 +1044,11 @@ function buildBuilding(id) {
   if (!def || buildings.has(id) || gold < def.cost) return;
   gold -= def.cost;
   buildings.add(id);
+  buildingOrder.push(id);
   def.onBuild();
   log(`Built ${def.name}.`);
   update();
-  if (!document.getElementById('townoverlay').classList.contains('hidden')) renderTownBuildings();
+  if (!document.getElementById('townoverlay').classList.contains('hidden')) refreshTownView();
   else renderBuildPanel();
 }
 
@@ -1320,147 +1307,311 @@ function drawTownScene(tc) {
   c.shadowBlur = 0;
 }
 
-function renderTownBuildings() {
-  const scroll = document.getElementById('townbuildscroll');
-  scroll.innerHTML = '';
+// ── Town canvas system ────────────────────────────────────────────────────
 
-  const ICONS = {
-    barracks:'⚔', archery:'🏹', thieves:'🗡', marketplace:'💰',
-    training:'💪', school:'📜', hut:'🏚', bank:'💎',
-    hotspring:'♨', academy:'🔮', garrison:'🛡', lodge:'🏕',
+function getTownSlots(W, H) {
+  const gy = H * 0.76;
+  const slots = [];
+  const rowDefs = [
+    { yFrac: 0.18, s: 0.56 },
+    { yFrac: 0.72, s: 0.92 },
+  ];
+  for (const { yFrac, s } of rowDefs) {
+    const y = gy + (H - gy) * yFrac;
+    const phw = W * (0.07 + 0.08 * yFrac);
+    const slotPitch = 58 * s;
+    // Left half
+    const leftW = W/2 - phw - W * 0.04;
+    const nL = Math.max(2, Math.floor(leftW / slotPitch));
+    for (let i = 0; i < nL; i++) {
+      const x = W * 0.03 + (i + 0.5) * leftW / nL;
+      slots.push({ x, y, s });
+    }
+    // Right half (mirror)
+    const rightStart = W/2 + phw + W * 0.04;
+    const rightW = W * 0.97 - rightStart;
+    const nR = Math.max(2, Math.floor(rightW / slotPitch));
+    for (let i = 0; i < nR; i++) {
+      const x = rightStart + (i + 0.5) * rightW / nR;
+      slots.push({ x, y, s });
+    }
+  }
+  return slots;
+}
+
+function drawBuilding(ctx, id, cx, by, s) {
+  // Config: [wallColor, roofColor, accentColor, halfW, wallH, roofH, style]
+  // style: 'tri'=triangle roof, 'batt'=battlements, 'flat'=flat top, 'pool'=hotspring, 'tower'=tall
+  const C = {
+    barracks:    ['#4a2018','#2a1008','#ffb040', 14,18, 0,'batt'],
+    archery:     ['#38401a','#1a2808','#90c040', 12,16,11,'tri'],
+    thieves:     ['#141420','#0c0c18','#4050c0', 10,12, 6,'tri'],
+    marketplace: ['#5a3e1a','#7a5828','#f0c040', 18,11, 0,'flat'],
+    training:    ['#2a1e38','#1a1228','#b060f0', 13,18, 0,'batt'],
+    school:      ['#162238','#0e1828','#4080c0', 11,22,12,'tri'],
+    hut:         ['#38200e','#502c0a','#803018',  9,12,10,'tri'],
+    bank:        ['#1c2e1c','#121e12','#40c060', 15,20, 0,'flat'],
+    hotspring:   ['#0c2820','#0a1e18','#20c0a0', 16, 7, 0,'pool'],
+    academy:     ['#121020','#0c0c1a','#8040ff',  8,30,14,'tower'],
+    garrison:    ['#38200e','#281208','#ffa020', 18,20, 0,'batt'],
+    lodge:       ['#3e2210','#52300c','#c08040', 14,16,12,'tri'],
   };
+  const [wc,rc,ac,hw,wH,rH,style] = C[id] || ['#303040','#202030','#6060c0',12,16,10,'tri'];
+  ctx.save();
 
-  // Refresh header stats
+  if (style === 'pool') {
+    ctx.fillStyle = wc;
+    ctx.fillRect(cx - hw*s, by - wH*s, hw*2*s, wH*s);
+    ctx.fillStyle = '#1a7060';
+    ctx.beginPath();
+    ctx.ellipse(cx, by - wH*0.5*s, hw*0.75*s, wH*0.4*s, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(160,240,220,0.55)'; ctx.lineWidth = 1.2;
+    [-4,0,5].forEach(dx => {
+      ctx.beginPath();
+      ctx.moveTo(cx + dx*s, by - wH*s - 2*s);
+      ctx.quadraticCurveTo(cx + (dx-3)*s, by - wH*s - 9*s, cx + dx*s, by - wH*s - 16*s);
+      ctx.stroke();
+    });
+    ctx.restore(); return;
+  }
+
+  if (style === 'tower') {
+    ctx.fillStyle = wc;
+    ctx.fillRect(cx - hw*s, by - wH*s, hw*2*s, wH*s);
+    ctx.fillStyle = rc;
+    ctx.fillRect(cx - (hw+2)*s, by - wH*s, (hw+2)*2*s, 4*s);
+    // Spire
+    ctx.fillStyle = rc;
+    ctx.beginPath();
+    ctx.moveTo(cx - (hw-1)*s, by - wH*s);
+    ctx.lineTo(cx, by - (wH+rH)*s);
+    ctx.lineTo(cx + (hw-1)*s, by - wH*s);
+    ctx.closePath(); ctx.fill();
+    ctx.shadowColor = ac; ctx.shadowBlur = 14;
+    ctx.fillStyle = ac;
+    ctx.beginPath();
+    ctx.arc(cx, by - (wH+rH)*s, 3*s, 0, Math.PI*2);
+    ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = ac;
+    ctx.fillRect(cx - 3*s, by - wH*0.4*s - 4*s, 6*s, 8*s);
+    ctx.restore(); return;
+  }
+
+  // Wall base
+  ctx.fillStyle = wc;
+  ctx.fillRect(cx - hw*s, by - wH*s, hw*2*s, wH*s);
+
+  if (style === 'tri') {
+    ctx.fillStyle = rc;
+    ctx.beginPath();
+    ctx.moveTo(cx - (hw+2)*s, by - wH*s);
+    ctx.lineTo(cx, by - (wH+rH)*s);
+    ctx.lineTo(cx + (hw+2)*s, by - wH*s);
+    ctx.closePath(); ctx.fill();
+  } else if (style === 'batt') {
+    const bw = 4*s, bg = 3*s;
+    ctx.fillStyle = rc;
+    for (let bx = cx - hw*s; bx < cx + hw*s - bw + 0.5; bx += bw + bg)
+      ctx.fillRect(bx, by - (wH+5)*s, bw, 5*s);
+  } else { // flat
+    ctx.fillStyle = rc;
+    ctx.fillRect(cx - (hw+2)*s, by - (wH+3)*s, (hw+2)*2*s, 3*s);
+  }
+
+  // Accent window/glow
+  ctx.shadowColor = ac; ctx.shadowBlur = 7*s;
+  ctx.fillStyle = ac;
+  ctx.fillRect(cx - 3*s, by - wH*0.55*s - 4*s, 6*s, 7*s);
+  ctx.shadowBlur = 0;
+  // Door
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(cx - 3*s, by - wH*0.35*s, 6*s, wH*0.35*s);
+  // Outline
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1;
+  ctx.strokeRect(cx - hw*s, by - wH*s, hw*2*s, wH*s);
+  ctx.restore();
+}
+
+function drawTownSlots(ctx, W, H) {
+  const slots = getTownSlots(W, H);
+  // Townhall = the castle keep, highlight on hover/select
+  const keepCX = W/2, keepH = H * 0.68, keepW = W * 0.19, keepY = H * 0.75 - keepH;
+  const thSel = townSelectedSlot === 'townhall', thHov = townHoverSlot === 'townhall';
+  if (thSel || thHov) {
+    ctx.save();
+    ctx.strokeStyle = thSel ? 'rgba(240,200,60,0.85)' : 'rgba(200,170,50,0.45)';
+    ctx.lineWidth = 2; ctx.setLineDash([5,4]);
+    ctx.strokeRect(keepCX - keepW/2 - 4, keepY - 4, keepW + 8, keepH + 4);
+    ctx.setLineDash([]); ctx.restore();
+  }
+  // Building slots
+  slots.forEach((sl, i) => {
+    const id = buildingOrder[i];
+    const isSel = townSelectedSlot === i, isHov = townHoverSlot === i;
+    if (id) {
+      drawBuilding(ctx, id, sl.x, sl.y, sl.s);
+      if (isSel || isHov) {
+        ctx.save();
+        const hw = 18*sl.s, ht = 28*sl.s;
+        ctx.strokeStyle = isSel ? 'rgba(240,200,60,0.85)' : 'rgba(200,170,50,0.45)';
+        ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+        ctx.strokeRect(sl.x - hw, sl.y - ht, hw*2, ht);
+        ctx.setLineDash([]); ctx.restore();
+      }
+    } else {
+      const hw = 20*sl.s, ht = 26*sl.s;
+      ctx.save();
+      ctx.strokeStyle = isHov ? 'rgba(180,160,80,0.55)' : 'rgba(120,110,60,0.2)';
+      ctx.lineWidth = 1; ctx.setLineDash([3,5]);
+      ctx.strokeRect(sl.x - hw, sl.y - ht, hw*2, ht);
+      ctx.setLineDash([]);
+      if (isHov) {
+        ctx.fillStyle = 'rgba(200,180,80,0.1)';
+        ctx.fillRect(sl.x - hw, sl.y - ht, hw*2, ht);
+        ctx.fillStyle = 'rgba(220,200,100,0.55)';
+        const a = sl.s;
+        ctx.fillRect(sl.x - 8*a, sl.y - ht/2 - a, 16*a, 2*a);
+        ctx.fillRect(sl.x - a,   sl.y - ht/2 - 8*a, 2*a, 16*a);
+      }
+      ctx.restore();
+    }
+  });
+}
+
+function townHitTest(mx, my, W, H) {
+  const keepCX = W/2, keepH = H * 0.68, keepW = W * 0.19, keepY = H * 0.75 - keepH;
+  if (mx >= keepCX - keepW/2 - 4 && mx <= keepCX + keepW/2 + 4 && my >= keepY - 4 && my <= H * 0.76)
+    return 'townhall';
+  const slots = getTownSlots(W, H);
+  for (let i = 0; i < slots.length; i++) {
+    const sl = slots[i];
+    const hw = 22*sl.s, ht = 30*sl.s;
+    if (mx >= sl.x - hw && mx <= sl.x + hw && my >= sl.y - ht && my <= sl.y) return i;
+  }
+  return null;
+}
+
+function renderTownPanel() {
+  const panel = document.getElementById('townpanel');
   document.getElementById('tGold').textContent   = gold;
   document.getElementById('tMana').textContent   = mana;
   document.getElementById('tSupply').textContent = `${hand.filter(c=>!c.dying).length}/${supply}`;
 
-  function makeConnector() {
-    const c = document.createElement('div');
-    c.className = 'skill-connector';
-    return c;
+  if (townSelectedSlot === null) {
+    panel.innerHTML = '<span style="color:#3a4a58;font-size:11px">Click a building to manage it — click an empty lot to construct.</span>';
+    return;
   }
-
-  // Three branches
-  const branches = [
-    {
-      title: '⚔ Military',
-      nodes: [
-        { id:'barracks',  name:'Barracks',      cost:4, desc:'Adds Warrior to pool.' },
-        { id:'archery',   name:'Archery Range',  cost:4, desc:'Adds Archer to pool.' },
-        { id:'thieves',   name:'Thieves Guild',  cost:4, desc:'Adds Assassin to pool.' },
-        null, // separator
-        { id:'garrison',  name:'Garrison',       cost:6, desc:'Adds Shieldbearer & Berserker.', requires:'barracks', tier:2 },
-      ],
-    },
-    {
-      title: '💰 Economy',
-      nodes: [
-        { id:'marketplace', name:'Marketplace', cost:4, desc:'+2 gold income/turn.' },
-        { id:'hut',         name:'Hut',         cost:4, desc:'+1 supply cap.' },
-        null,
-        { id:'bank',  name:'Bank',  cost:6, desc:'+3 gold income/turn.', requires:'marketplace', tier:2 },
-        { id:'lodge', name:'Lodge', cost:6, desc:'+2 supply cap.',        requires:'hut',         tier:2 },
-        null,
-        { id:'hotspring', name:'Hot Spring', cost:6, desc:'Permanently boost a unit stat.', tier:2 },
-      ],
-    },
-    {
-      title: '📖 Knowledge',
-      nodes: [
-        { id:'school',   name:'School',          cost:4, desc:'Unlocks mana, Apprentice & T1 spells.' },
-        { id:'training', name:'Training Ground', cost:4, desc:'Upgrade unit stats permanently.' },
-        null,
-        { id:'academy',  name:'Academy', cost:6, desc:'Unlocks Mage & Priest. +1 spell tier.', requires:'school', tier:2 },
-        null,
-        { id:'townhall', name:'Townhall', icon:'🏰', cost:6, desc:`Draws ${cardsPerTurn} cards/turn.`,
-          builtOverride: true, actionHtml: `<div class="skill-node-actions"><button class="ubtn" onclick="openTownhallUp()" ${gold<6?'disabled':''}>Upgrade (6g)</button></div>` },
-      ],
-    },
-  ];
-
-  for (const branch of branches) {
-    const col = document.createElement('div');
-    col.className = 'skill-branch';
-
-    const title = document.createElement('div');
-    title.className = 'skill-branch-title';
-    title.textContent = branch.title;
-    col.appendChild(title);
-
-    let prevWasNode = false;
-    for (const b of branch.nodes) {
-      if (!b) { prevWasNode = false; continue; }
-      if (prevWasNode) col.appendChild(makeConnector());
-
-      // Resolve against BUILDING_DEFS for onBuild logic, use branch data for display
-      const builtState = b.builtOverride || buildings.has(b.id);
-      const blocked = b.requires && !buildings.has(b.requires);
-      const canAfford = !builtState && !blocked && gold >= b.cost;
-      const state = builtState ? 'sn-built' : blocked ? 'sn-locked' : 'sn-available';
-
-      const node = document.createElement('div');
-      node.className = `skill-node ${state}`;
-      const icon = b.icon || ICONS[b.id] || '🏗';
-      const tierBadge = b.tier === 2 ? ' <span style="font-size:9px;color:#6050a0">[T2]</span>' : '';
-
-      let html = `<div class="skill-node-icon">${icon}</div>
-        <div class="skill-node-name">${b.name}${tierBadge}</div>
-        <div class="skill-node-desc">${b.desc}</div>`;
-
-      if (builtState) {
-        html += `<div class="skill-node-status">✓ Built</div>`;
-        if (b.actionHtml) html += b.actionHtml;
-      } else if (blocked) {
-        const reqDef = BUILDING_DEFS.find(x => x.id === b.requires);
-        html += `<div class="skill-node-locked-label">🔒 ${reqDef ? reqDef.name : b.requires}</div>`;
-      } else {
-        html += `<div class="skill-node-cost">${b.cost}g</div>`;
-        if (canAfford) {
-          node.style.cursor = 'pointer';
-          node.onclick = ((_id) => () => buildBuilding(_id))(b.id);
-        }
+  if (townSelectedSlot === 'townhall') {
+    const thCost = 6;
+    panel.innerHTML = `<div class="tp-name">🏰 Townhall lv${townhallLevel + 1}</div>
+      <div class="tp-desc">Draws ${cardsPerTurn} card${cardsPerTurn>1?'s':''}/turn. Upgrade for +1 card + a kingdom bonus.</div>
+      <div class="tp-actions"><button class="ubtn" onclick="openTownhallUp()" ${gold<thCost?'disabled':''}>Upgrade (${thCost}g)</button></div>`;
+    return;
+  }
+  const idx = townSelectedSlot;
+  const builtId = buildingOrder[idx];
+  if (builtId) {
+    const def = BUILDING_DEFS.find(b => b.id === builtId);
+    let actHtml = '';
+    if (builtId === 'training') {
+      const tr = Object.values(UNIT_DEFS).filter(u => unitPool.some(p => p.name === u.name));
+      if (tr.length) {
+        actHtml = tr.flatMap(u => ['atk','def'].map(stat => {
+          const lvl = trainingLevels[`${u.name}-${stat}`] || 0;
+          const cost = 1 + lvl;
+          return `<div class="urow"><span>${u.name} +${stat.toUpperCase()} lv${lvl}</span>
+            <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')" ${gold<cost?'disabled':''}>${cost}g</button></div>`;
+        })).join('');
       }
-
-      // Special built actions
-      if (b.id === 'training' && builtState) {
-        const trainable = Object.values(UNIT_DEFS).filter(u => unitPool.some(p => p.name === u.name));
-        if (trainable.length) {
-          html += '<div class="skill-node-actions">';
-          for (const u of trainable) for (const stat of ['atk','def']) {
-            const lvl = trainingLevels[`${u.name}-${stat}`] || 0;
-            const cost = 1 + lvl;
-            html += `<div class="urow"><span>${u.name} +${stat.toUpperCase()} lv${lvl}</span>
-              <button class="ubtn" onclick="trainUnit('${u.name}','${stat}')" ${gold<cost?'disabled':''}>${cost}g</button></div>`;
-          }
-          html += '</div>';
-        }
-      }
-      if (b.id === 'hotspring' && builtState) {
-        const hasUnits = hand.some(c => !c.dying);
-        html += `<div class="skill-node-actions"><button class="ubtn" onclick="closeTown();openHotSpring()" ${!hasUnits?'disabled':''}>Use Hot Spring</button></div>`;
-      }
-      if (b.id === 'academy' && builtState) {
-        html += `<div style="font-size:10px;color:#3a4a5a;margin-top:4px">Spell research coming soon</div>`;
-      }
-
-      node.innerHTML = html;
-      col.appendChild(node);
-      prevWasNode = true;
+    } else if (builtId === 'hotspring') {
+      const hasU = hand.some(c => !c.dying);
+      actHtml = `<button class="ubtn" onclick="closeTown();openHotSpring()" ${!hasU?'disabled':''}>Use Hot Spring</button>`;
+    } else if (builtId === 'academy') {
+      actHtml = `<span style="font-size:10px;color:#3a4a5a">Spell research coming soon</span>`;
     }
-    scroll.appendChild(col);
+    panel.innerHTML = `<div class="tp-name">${BICONS[builtId]||'🏗'} ${def?.name||builtId}</div>
+      <div class="tp-desc">${def?.desc||''}</div>
+      <div class="tp-actions">${actHtml}</div>`;
+  } else {
+    const avail = BUILDING_DEFS.filter(b => !buildings.has(b.id));
+    if (!avail.length) {
+      panel.innerHTML = '<div class="tp-name">Empty Lot</div><div class="tp-desc">All buildings constructed.</div>'; return;
+    }
+    const opts = avail.map(b => {
+      const locked = b.requires && !buildings.has(b.requires);
+      const reqName = locked ? (BUILDING_DEFS.find(x=>x.id===b.requires)?.name||b.requires) : '';
+      const canBuild = !locked && gold >= b.cost;
+      const cls = locked ? 'tp-lock' : canBuild ? 'tp-can' : 'tp-poor';
+      const onc = canBuild ? `onclick="buildBuilding('${b.id}')"` : '';
+      return `<div class="tp-opt ${cls}" ${onc} title="${b.desc}">
+        <span class="tp-opt-icon">${BICONS[b.id]||'🏗'}</span>
+        <span>${b.name}</span>
+        <span class="tp-opt-cost">${locked?'🔒 '+reqName : b.cost+'g'}</span>
+      </div>`;
+    }).join('');
+    panel.innerHTML = `<div class="tp-name">Empty Lot — choose what to build:</div>
+      <div class="tp-build-grid">${opts}</div>`;
   }
 }
+
+function refreshTownView() {
+  const tc = document.getElementById('towncanvas');
+  if (!tc || tc.offsetWidth === 0) return;
+  tc.width  = tc.offsetWidth;
+  tc.height = tc.offsetHeight;
+  drawTownScene(tc);
+  drawTownSlots(tc.getContext('2d'), tc.width, tc.height);
+  renderTownPanel();
+}
+
+function renderTownBuildings() { refreshTownView(); } // backward-compat alias
 
 function openTown() {
   if (phase !== 'playing') { log('Finish current action first.'); return; }
-  renderTownBuildings();
+  townSelectedSlot = null; townHoverSlot = null;
   document.getElementById('townoverlay').classList.remove('hidden');
   const tc = document.getElementById('towncanvas');
-  drawTownScene(tc);
+
+  function redraw() {
+    tc.width  = tc.offsetWidth;
+    tc.height = tc.offsetHeight;
+    drawTownScene(tc);
+    drawTownSlots(tc.getContext('2d'), tc.width, tc.height);
+  }
+
+  tc.onmousemove = (e) => {
+    const r = tc.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (tc.width  / r.width);
+    const my = (e.clientY - r.top)  * (tc.height / r.height);
+    const hit = townHitTest(mx, my, tc.width, tc.height);
+    if (hit !== townHoverSlot) {
+      townHoverSlot = hit;
+      tc.style.cursor = hit !== null ? 'pointer' : 'default';
+      redraw();
+    }
+  };
+  tc.onmouseleave = () => {
+    if (townHoverSlot !== null) { townHoverSlot = null; tc.style.cursor = 'default'; redraw(); }
+  };
+  tc.onclick = (e) => {
+    const r = tc.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (tc.width  / r.width);
+    const my = (e.clientY - r.top)  * (tc.height / r.height);
+    const hit = townHitTest(mx, my, tc.width, tc.height);
+    townSelectedSlot = (hit === townSelectedSlot) ? null : hit;
+    renderTownPanel(); redraw();
+  };
+
+  redraw();
+  renderTownPanel();
 }
 
 function closeTown() {
+  const tc = document.getElementById('towncanvas');
+  tc.onmousemove = null; tc.onmouseleave = null; tc.onclick = null;
+  tc.style.cursor = 'default';
+  townSelectedSlot = null; townHoverSlot = null;
   document.getElementById('townoverlay').classList.add('hidden');
   update(); renderHand();
 }
@@ -2158,10 +2309,11 @@ function update() {
   // Show enemy health label dynamically
   let enemyEl = document.getElementById('sEnemyHealth');
   if (!enemyEl) {
-    const span = document.createElement('span');
-    span.innerHTML = `Enemy <b id="sEnemyHealth">${enemyHealth}</b> ♥`;
-    span.style.color = '#e08080';
-    document.getElementById('endbtn').before(span);
+    const badge = document.createElement('div');
+    badge.className = 'hud-stat';
+    badge.style.borderColor = '#4a1a1a';
+    badge.innerHTML = `<span class="hud-icon">💀</span><span class="hud-label">Enemy</span><span class="hud-val" id="sEnemyHealth" style="color:#e08080">${enemyHealth}</span>`;
+    document.getElementById('endbtn').before(badge);
   } else {
     enemyEl.textContent = enemyHealth;
   }
